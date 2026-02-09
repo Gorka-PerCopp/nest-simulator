@@ -22,7 +22,7 @@
 
 %% Mathematica style global Options
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: OptionsDictionary - Dictionary for global options
 Synopsis: none
 
@@ -32,7 +32,7 @@ certain functions. Within the dictionary each
 function name is associated with a dictionary
 which contains the options for that function.
 
-Note that the accessibility, i.e. the dictionary
+Note that the accessibility, i.e. the dicitonary
 in which a function is defined is not accounted for.
 
 It is suggested that you use a C++-like notation to indicate the
@@ -48,7 +48,7 @@ SeeAlso: GetOption, GetOptions, ShowOptions, SetOptions, Options, ResetOptions, 
 
 /OptionsDictionary << >> def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: Options - Define a new set of options for a given name.
 Synopsis: /f  optiondict Options -> --
 
@@ -92,14 +92,14 @@ trie [/literaltype /dictionarytype]
   end
 } bind addtotrie def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: SetOptions - Set options for a given name
 Synopsis: /f  optiondict SetOptions -> --
 
 Description:
 SetOptions set all option values given in
 the supplied dictionary. Options which are not listed
-in this dictionary are not modified.
+in this dicitonary are not modified.
 Note that only those options can be modified which were
 initially defined by the Options command.
 
@@ -141,7 +141,7 @@ trie [/literaltype /dictionarytype]
     end
 } bind addtotrie def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: GetOptions - Get all options for a given name
 Synopsis: /f  GetOptions -> optiondict
 
@@ -174,7 +174,7 @@ SeeAlso: GetOption, ShowOptions, SetOptions, Options, ResetOptions, SaveOptions,
   end
 } bind def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: ShowOptions - Display all options for a given name
 Synopsis: /f  ShowOptions -> --
 
@@ -194,7 +194,7 @@ SeeAlso: GetOption, GetOptions, SetOptions, Options, ResetOptions, SaveOptions, 
   GetOptions info
 } bind def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: GetOption - get the value of a procedure option
 Synopsis: /f /opt GetOption -> val
 
@@ -229,7 +229,7 @@ SeeAlso: GetOptions, ShowOptions, SetOptions, Options, ResetOptions, SaveOptions
 
 
 %----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
 
 Name: SaveOptions - temporarily save options of a command
 
@@ -260,7 +260,7 @@ SeeAlso: GetOption, GetOptions, ShowOptions, SetOptions, Options, ResetOptions, 
 } def
 
 %----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
 
 Name: RestoreOptions - Restore the temporaryly saved options of a command
 
@@ -292,7 +292,7 @@ SeeAlso: GetOption, GetOptions, ShowOptions, SetOptions, Options, ResetOptions, 
 } def
 
 %----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
 
 Name: ResetOptions - Reset all options of a command to their default values.
 
@@ -324,7 +324,7 @@ SeeAlso: GetOption, GetOptions, ShowOptions, SetOptions, Options, SaveOptions, R
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: JoinTo - Join an object to a container
 
 Synopsis:
@@ -412,7 +412,7 @@ def
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: AppendTo - Append an object to a container
 
 Synopsis: any literal AppendTo -> --
@@ -476,7 +476,7 @@ forall
 def
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: ReplacePart - replaces particular elements of an array
 Synopsis: array1 any integer ReplacePart -> array3
           array1 any array2  ReplacePart
@@ -636,7 +636,7 @@ References:
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: ReplaceOccurrences - replace the occurences of a key in a container
 Synopsis:  l1 l2 l3 ReplaceOccurrences l4
 Description:
@@ -691,12 +691,28 @@ end
 } bind def
 
 
+/Map_iter
+{
+ % i p
+ exch size
+ % p i s
+ [] exch reserve
+ % p i a
+ rollu exch
+ % a i p
+ {append} join
+ % a i p
+ forall
+ % a
+} def
+
+
 % a p a
 % presently less general than the Mathematica version.
 % the level specification is restriced to [n], 130222 MD
 /MapAtLevel
 {
- 0 get
+ 0 get 
  MapRecursion
 } def
 
@@ -711,7 +727,7 @@ end
   rolld  % p i a
 
   {
-             % p i ai
+             % p i ai 
    rollu     % ai p i
    2 copy    % ai p i p i
    5 -1 roll % p i p i ai
@@ -719,7 +735,7 @@ end
    MapRecursion
   } Map
           % p i a
-  rollu   % a p i
+  rollu   % a p i 
   2 npop  % a
  }
  {pop Map}
@@ -731,12 +747,13 @@ end
 /Map trie
 [/arraytype /proceduretype] /Map_ load addtotrie
 [/arraytype /proceduretype /arraytype] /MapAtLevel load addtotrie
+[/iteratortype /proceduretype] /Map_iter load addtotrie
 [/stringtype /proceduretype] /Map_s load addtotrie
 def
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: MapAt - applies a function to some of the elements of its argument
 Synopsis: array1 proc array2 MapAt -> array3
 Description:
@@ -916,7 +933,7 @@ References:
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
  Name: Range - Generate array with range of numbers
  Synopsis:  [N] Range  -> [1 ... N]
             [N1 N2] Range -> [N1 ... N2]
@@ -954,8 +971,28 @@ References:
 [/arraytype] /Range_ load addtotrie
 def
 
+/RangeIterator
+[/arraytype]
+{
+ size 1 eq
+ {
+  1 prepend 1 append RangeIterator_a
+ }
+ {
+  size 2 eq
+  {
+   1 append RangeIterator_a
+  }
+  {
+   RangeIterator_a
+  } ifelse
+ } ifelse
+}
+def
 
-/** @BeginDocumentation
+
+
+/* BeginDocumentation
  Name: Table - Generate an array according to a given function
  Synopsis:  [N]       {f} Table  -> [f(1) ... f(N)]
             [N1 N2]   {f} Table  -> [f(N1) ...f(N2)]
@@ -995,7 +1032,8 @@ def
 /Table trie
 [/arraytype /proceduretype] /Table_ load addtotrie def
 
-/** @BeginDocumentation
+/*
+BeginDocumentation
 
    Name: MapIndexed - Apply a function  to each element of a list/string
 
@@ -1014,7 +1052,7 @@ def
      MapIndexed works similar to Map, however, in adition to the
      element its index within the array is also passed to the function.
      Note that the index starts with 1, according to Mathematica convention.
-     This is unlike in forallindexed where in accordance with Postscript
+     This is unlike in forallindexed where in accordance with Postscript 
      array indices start with 0.
      The result of MapIndexed is a list with the same number of values as the
      argument list.
@@ -1081,7 +1119,7 @@ def
 def
 
 % * List Operations
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: First - Return the first element of an array or string.
 
 Synopsis: string First -> char
@@ -1098,7 +1136,7 @@ SeeAlso: Last, Rest, Most
 
 /First { 0 get }    bind def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Last - Return the last element of an array or string
 
 Synopsis: string Last -> char
@@ -1114,7 +1152,7 @@ SeeAlso: First, Rest, Most
 */
 /Last  { size 1 sub_ii get } bind def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Rest - Remove the first element of an array or string and return
 the rest.
 
@@ -1134,7 +1172,7 @@ SeeAlso: First, Last, Most
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Most - Remove the last element of an array or string and return the rest.
 Synopsis: string Most -> string
 array Most -> array
@@ -1182,7 +1220,7 @@ def
  FixedPoint__p_i
 } def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Flatten - flatten out a nested list
 Synopsis:
          array         Flatten -> array
@@ -1251,7 +1289,7 @@ def
  exch pop   % f(x)
 } def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: FixedPoint - applies a procedure repeatedly until the result is an invariant
 Synopsis:
          any proc         FixedPoint -> any
@@ -1281,7 +1319,8 @@ SeeAlso: Flatten
 def
 
 
-/** @BeginDocumentation
+/*
+BeginDocumentation
 
    Name: Partition - Partition list into n element pieces
 
@@ -1344,7 +1383,7 @@ def
   } loop
 } bind def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: TensorRank - Determine the level to which an array is a full vector
 Synopsis: [array] TensorRank -> n
 Examples:
@@ -1359,7 +1398,7 @@ def
 /TensorRank [/intvectortype] {; 1} def
 /TensorRank [/doublevectortype] {; 1} def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Dimensions - determine dimenstions of a (hyper-rectangular) SLI array
 Synopsis: [array] Dimensions -> [d1 d2 ... dn]
 Description:
@@ -1419,7 +1458,7 @@ trie [/arraytype]
 /Dimensions [/intvectortype] { length 1 arraystore } def
 /Dimensions [/doublevectortype] { length 1 arraystore } def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: MatrixQ - Test whether a nested array i a matrix
 Synopsis: [array] MatrixQ -> true | false
 Examples: [1 2 3] MatrixQ -> true
@@ -1463,7 +1502,7 @@ trie [/arraytype]
 /MatrixQ [/intvectortype] false def
 /MatrixQ [/doublevectortype] false def
 
-/** @BeginDocumentation
+/* BeginDocumentation
   Name: FindRoot - numerically find a root in an interval
   Synopsis: proc double1 double2 double3 FindRoot -> double
   Description:
@@ -1523,7 +1562,8 @@ end
 
 
 %---------------------------------------------------------------------------------- <- end of line (C84) is maximum width for LaTeX-include1
-/** @BeginDocumentation
+/*
+BeginDocumentation
 
 Name: MathematicaToSliIndex - Convert Mathematica-like indices to SLI indices
 
@@ -1583,7 +1623,8 @@ bind def
 def
 
 %---------------------------------------------------------------------------------- <- end of line (C84) is maximum width for LaTeX-include1
-/** @BeginDocumentation
+/*
+BeginDocumentation
 
 Name: SliToMathematicaIndex - Convert SLI indices to Mathematica-like indices
 
@@ -1679,7 +1720,7 @@ SeeAlso: MathematicaToSliIndex
 
 } def
 
-/** @BeginDocumentation
+/* BeginDocumentation
   Name: Part - returns a sub-array of an array
   Synopsis: array1 array2 Part -> array3
   Description:
@@ -1710,16 +1751,16 @@ SeeAlso: MathematicaToSliIndex
 
 
    [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ [1 3] [2 3] ] Part  --> [[5 6] [1 8]]
-   [ [3 [-12 -19] 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 2 2] Part --> -19
-   [3 4 5 6 7] [-2] Part                                   --> 6
+   [ [3 [-12 -19] 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 2 2] Part --> -19  
+   [3 4 5 6 7] [-2] Part                                   --> 6 
    [3 [-9 -12] 5 6 7] [2] Part                             --> [-9 -12]
    [3 [-9 -12] 5 6 7] [2 2] Part                           --> -12
-   [3 [-9 -12] 5 6 7] [[2 3]] Part                         --> [[-9 -12] 5]
+   [3 [-9 -12] 5 6 7] [[2 3]] Part                         --> [[-9 -12] 5] 
    [3 [-9 -12] 5 6 7] [[2 3 2]] Part                       --> [[-9 -12] 5 [-9 -12]]
-   [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 []  ] Part    --> []
-   [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ [] 1 ] Part     --> []
-   [3 [5 -12] 6 9]  [ [ 2 ] ] Part                         --> [[5 -12]]
-   [3 [5 -12] 6 9]  [ [ 2 ] 2] Part                        --> [-12]
+   [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ 1 []  ] Part    --> [] 
+   [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ [] 1 ] Part     --> [] 
+   [3 [5 -12] 6 9]  [ [ 2 ] ] Part                         --> [[5 -12]] 
+   [3 [5 -12] 6 9]  [ [ 2 ] 2] Part                        --> [-12] 
    [ [3 5 6 9] [11 4 7 2] [-9 1 8 10] ]  [ /All [3 2]  ] Part --> [[6 5] [7 4] [8 1]]
 
   Bugs:
@@ -1795,14 +1836,14 @@ def
      rolld                         % a jm im
      dup                           % a jm im im
      rollu                         % a im jm im
-     sub 1 add
-     dup 0 lt			    % if 2nd parameter < 0, set it to zero to force getinterval
+     sub 1 add   
+     dup 0 lt			    % if 2nd parameter < 0, set it to zero to force getinterval 
      {				    % to return empty array as requested by Take in this case
-       pop 0
-     } if
-
+       pop 0 
+     } if 
+    
      getinterval
-
+     
    } case
 
    1 index 3 eq
@@ -1811,7 +1852,7 @@ def
      dup rollu Most MathematicaToSliIndex rolld Last append
      Range     % a r
      exch      % r a
-     container % r a c
+     container % r a c 
      rolld     % a c r
      {
        2 index
@@ -1835,7 +1876,7 @@ def
  } ifelse
 } bind def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Take - extract element sequences from a container
 Synopsis:
  array  n Take                  return the first n elements
@@ -1849,8 +1890,8 @@ Operations are the same on strings.
 The implementation of Take uses the command container to abstract
 the container type.
 
-Note that Take handles indices ranging from -N to N where
-    N is the length of the original container and asking for index 0
+Note that Take handles indices ranging from -N to N where 
+    N is the length of the original container and asking for index 0 
     will return an empty array.
 
 If the specified indices do not exist in the container, Take throws a RangeCheck error.
@@ -1865,7 +1906,7 @@ Examples:
  [1 2 3 4 5] [1 -2] Take   --> [1 2 3 4]
  [1 2 3 4 5] [1 -2 2] Take --> [1 3]
  [1 2 3 4 5] [1 -1 2] Take --> [1 3 5]
-% [1 2 3 4 5] [1 6] Take    --> [Error]: RangeCheck
+% [1 2 3 4 5] [1 6] Take    --> [Error]: RangeCheck 
  (HAL) {1 add} Map     --> (IBM)
  (HAL) 2 Take          --> (HA)
  (HAL) -2 Take         --> (AL)
@@ -1892,7 +1933,7 @@ def
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Drop - remove element sequences from an array
 Synopsis:
  array  n Drop                  remove the first n elements
@@ -2060,7 +2101,7 @@ def
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: NestList - gives a list of the results of applying f to x 0 through n times.
 Synopsis: x f n NestList ->  [x, x f,  x f f,..., x f1 ... fn]
 Parameters: x - any object to which f can be applied
@@ -2088,7 +2129,7 @@ SeeAlso: Map, forall
 } bind addtotrie def
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Nest - apply a function n times
 Synopsis: x f n Nest -> f( ...n times... f(f(x)) ...)
 Examples:0.2 {dup 1 exch sub mul 3.3 mul} 10 Nest
@@ -2108,7 +2149,7 @@ SeeAlso: repeat, forall, NestList, Fold
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Fold - result of repeatedly applying a function with two arguments
 Synopsis: x [a b c ...] f Select -> f( ...n times... f(f(f(x,a),b),c) ...)
 Examples: 1 [2 x] Range {mul} Fold
@@ -2128,7 +2169,7 @@ SeeAlso: forall, repeat, FoldList, Nest
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: FoldList - repeatedly apply a function with two parameters
 Synopsis: x [a b c ...] f FoldList -> [f(x,a) f(f(x,a),b) ...]
 Examples: 0 [1 2 3 4] {add} FoldList gives the cumulative sums of the list.
@@ -2162,7 +2203,7 @@ SeeAlso: NestList, Fold, Map, forall
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Select - reduces an array to elements which fulfill a criterion
 Synopsis: array proc Select -> array
 Examples:[4 -2 0.3 -1.7 -3 0 7] {0 lt} Select -> [-2 -1.7 -3]
@@ -2185,7 +2226,7 @@ SeeAlso: Take, Split
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Split - splits array into subarrays of sequences of identical elements
 Synopsis: array  Split     -> [array1 ... arrayn]
           array proc Split -> [array1 ... arrayn]
@@ -2242,7 +2283,7 @@ def
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: MergeLists - merges sorted lists
 Synopsis: array array      MergeLists  -> array
           array array proc MergeLists  -> array
@@ -2333,7 +2374,7 @@ def
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
   Name: Times - represents/computes product of terms
   Synopsis: array Times -> double
                         -> integer
@@ -2361,7 +2402,7 @@ def
 /Times { 1 exch { mul } forall } bind def
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
   Name: Plus - represents/computes sum of terms
   Synopsis: array Plus -> double
                        -> integer
@@ -2406,7 +2447,7 @@ def
  (use arrayload instead.) join join M_INFO message
 } def
 
-/** @BeginDocumentation
+/* BeginDocumentation
   Name: Dot - product of vectors, matrices, and tensors
   Synopsis: array array Dot -> array
                               -> double
@@ -2450,7 +2491,7 @@ def
      [ [22 9] [53 31] [47 56] [39 57] ]
     ]
 
-  Bugs: Bad performance: TensorRank should be rewritten in C++
+  Bugs: Bad performace: TensorRank should be rewritten in C++
    not yet protected by trie
   Author: Diesmann
   FirstVersion: 31.5.2000
@@ -2483,10 +2524,10 @@ def
  ifelse_
 } bind def
 
-/** @BeginDocumentation
+/* BeginDocumentation
    Name: Dot1D - Compute the inner product of two vectors.
    Synopsis: array array Dot1D -> num
-   Description:
+   Description: 
    Dot1D expects two one dimensional arrays or vectors and computes the
    inner product of the two arguments.
    Dot1D works equally well for arrays, doublevectors and intvectors.
@@ -2505,7 +2546,7 @@ def
 } def
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
   Name: OuterProduct - outer product
   Synopsis: array array OuterProduct -> array
 
@@ -2530,7 +2571,7 @@ def
    not yet protected by trie
   Author: Marc-Oliver Gewaltig, Diesmann
   FirstVersion: 31.5.2000, rewritten Dec 18 2012
-
+  
   Remarks:
   SeeAlso: Times, Dot
   References:
@@ -2539,12 +2580,12 @@ def
 /OuterProduct
 {
  exch
- { 1 index mul } Map
+ { 1 index mul } Map 
  exch pop
 } bind def
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: LayoutArray - build a multidimensional array
 Synopsis: [d1 d2 ...] val LayoutArray -> [...]
 Parameters: [d1 d2 ...] - Array with dimensions.
@@ -2582,7 +2623,7 @@ SeeAlso: ArrayShape, Range, Table, Dimensions, array
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: ArrayShape - reduce a multidimensional array to a desired shape
 Synopsis: array1 [d1 d2 ...] LayoutArray -> array2
 Parameters:
@@ -2680,7 +2721,7 @@ SeeAlso: LayoutArray, Part, Table, Dimensions
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: add - add two numbers or vectors
 Synopsis: n1 n2  add -> n3
           a1 a2  add -> a3
@@ -2689,7 +2730,7 @@ Description: add can be used to add numbers and arrays.
   If applied to numbers, add returns the sum of the numbers. If one
   of the arguments is a double, the result is also a double.
 
-  Applied to arrays, add performs a per-component addition of the two
+  Applied to arrays, add perfoms a per-component addition of the two
   arrays. The components must be numbers, however, integer and double
   values may be mixed.
 
@@ -2731,7 +2772,7 @@ SeeAlso: Dot, Plus, Times
 /add [/integertype /arraytype] /add_i_a load def
 /add [/arraytype /integertype] /add_a_i load def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: sub - subtract two numbers or vectors
 
 Synopsis: n1 n2  sub -> n3
@@ -2742,7 +2783,7 @@ Description: sub can be used to subtract numbers and arrays.
   If applied to numbers, sub returns the difference of the numbers. If one
   of the arguments is a double, the result is also a double.
 
-  Applied to arrays, sub performs a per-component subtraction of the two
+  Applied to arrays, sub perfoms a per-component subtraction of the two
   arrays. The components must be numbers, however, integer and double
   values may be mixed.
 
@@ -2789,7 +2830,7 @@ SeeAlso: add, mul, div
 /sub [/integertype /arraytype] /sub_i_a load def
 /sub [/arraytype /integertype] /sub_a_i load def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: mul - multiply two numbers or vectors (point-wise)
 
 Synopsis: int int mul -> int
@@ -2829,7 +2870,7 @@ SeeAlso: add, sub, div, Dot
 /mul [/integertype /arraytype] /mul_i_a load def
 /mul [/arraytype /integertype] /mul_a_i load def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: div - divide two numbers or vectors (point-wise)
 
 Synopsis: int int div -> int
@@ -2869,7 +2910,7 @@ SeeAlso: add, sub, mul, Dot
 /div [/integertype /arraytype] /div_i_a load def
 /div [/arraytype /integertype] /div_a_i load def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: ArrayQ - returns true if top object is an array
 SeeAlso: NumberQ, LiteralQ
 */
@@ -2877,7 +2918,7 @@ SeeAlso: NumberQ, LiteralQ
 /ArrayQ trie [/arraytype] true  addtotrie
              [/anytype]   false addtotrie
 def
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: LiteralQ - returns true if top object is a literal
 SeeAlso: NumberQ, ArrayQ, StringQ
 */
@@ -2885,7 +2926,7 @@ SeeAlso: NumberQ, ArrayQ, StringQ
                [/anytype]   false   addtotrie
 def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: NumberQ - returns true if top object is a number (int or double)
 Synopsis: int    NumberQ -> true
           double NumberQ -> true
@@ -2899,7 +2940,7 @@ SeeAlso: IntegerQ, DoubleQ, LiteralQ, ArrayQ, StringQ
  [/anytype]     false addtotrie
 def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: IntegerQ - returns true if top object is an integer (int)
 Synopsis: int    IntegerQ -> true
           any    IntegerQ -> false
@@ -2910,7 +2951,7 @@ SeeAlso: NumberQ, DoubleQ, LiteralQ, ArrayQ, StringQ
  [/anytype]     false addtotrie
 def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: DoubleQ - returns true if top object is a double
 Synopsis: double DoubleQ -> true
           any    DoubleQ -> false
@@ -2921,7 +2962,7 @@ SeeAlso: IntegerQ, DoubleQ, FiniteQ, LiteralQ, ArrayQ, StringQ
  [/anytype]    false addtotrie
 def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: FiniteQ - returns true if top object is finite number
 Synopsis: double FiniteQ -> true/false
           int    FiniteQ -> true
@@ -2938,7 +2979,7 @@ SeeAlso: IntegerQ, DoubleQ, LiteralQ, ArrayQ, StringQ
 def
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: StringQ - returns true if top object is a string
 Synposis: string StringQ -> true
           any    StringQ -> false
@@ -2948,18 +2989,18 @@ SeeAlso: NumberQ, LiteralQ, ArrayQ
        	      [/anytype]    false addtotrie
 def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: DictQ - returns true if top object is a dictionary
 Synposis: dictionary DictQ -> true
           any        DictQ -> false
 SeeAlso: NumberQ, LiteralQ, ArrayQ
 */
-/DictQ trie
+/DictQ trie 
   [/dictionarytype] true addtotrie
   [/anytype]        false addtotrie
 def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: MemberQ - checks if array contains a specific element
 Synopsis:
 array any MemberQ -> true
@@ -2985,7 +3026,7 @@ SeeAlso: LiteralQ, NumberQ, ArrayQ, MatrixQ, HasDifferentMemberQ
  end
 } def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: HasDifferentMemberQ - checks if array contains different element(s)
 Synopsis:
 array any HasDifferentMemberQ -> true
@@ -3010,7 +3051,7 @@ SeeAlso: LiteralQ, NumberQ, ArrayQ, MatrixQ, MemberQ
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-/** @BeginDocumentation
+/* BeginDocumentation
    Name: SubsetQ - Test if one dictinary is a subset of another
 
    Synopsis:
@@ -3054,7 +3095,7 @@ SeeAlso: LiteralQ, NumberQ, ArrayQ, MatrixQ, MemberQ
   end
 } bind def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: ToMathematicaExpression - converts SLI data to Mathematica input
 Synopsis:
 any ToMathematicaExpression -> string
@@ -3145,7 +3186,7 @@ References:
 } def
 
 %----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
 
 Name: UnitStep - The unit step function (aka Heavyside function)
 
@@ -3216,7 +3257,7 @@ References:
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Sign - returns the sign of its argument
 Synopsis:
  integer Sign -1,0, or 1
@@ -3246,7 +3287,7 @@ SeeAlso: UnitStep, abs
 def
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: IntegerPart - Return integer part of the argument.
 Synopsis: double IntegerPart -> integerpart
 Description:
@@ -3264,7 +3305,7 @@ SeeAlso: FractionalPart
  [/doubletype] { int_d double_i } addtotrie
 def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: FractionalPart - Return fractional part of the argument.
 Synopsis: double FractionalPart -> fractionalpartpart
 Description:
@@ -3283,7 +3324,7 @@ SeeAlso: IntegerPart
 def
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Max - returns the largest element of an array
 Synopsis:
  array Max -> max element
@@ -3307,23 +3348,23 @@ SeeAlso: Min, Sort
 /Max
 {
    size 0 eq
-   {
+   {  
      /Max /RangeCheck raiseerror
    } if
    dup 0 get  % start value as sentinel
-   exch
-   {
+   exch 
+   { 
       dup 2 index gt % compare current element with sentinel
-     {
+     { 
        exch pop % if element is greater than sentinel, make it new sentinel
-     }
+     } 
      {
         pop  %else discard
-     } ifelse
-   } forall
+     } ifelse 
+   } forall 
 } def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Min - returns the smallest element of an array
 Synopsis:
  array Min -> min element
@@ -3348,25 +3389,25 @@ SeeAlso: Max, Sort, Mean, Variance
 /Min
 {
    size 0 eq
-   {
-     /Min /RangeCheck raiseerror
+   {  
+     /Max /RangeCheck raiseerror
    } if
    dup 0 get  % start value as sentinel
-   exch
-   {
+   exch 
+   { 
       dup 2 index lt % compare current element with sentinel
-     {
+     { 
        exch pop % if element is less than sentinel, make it new sentinel
-     }
+     } 
      {
         pop  %else discard
-     } ifelse
-   } forall
+     } ifelse 
+   } forall 
 }
 def
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Total - returns the sum of the elements of an array
 Synopsis:
  array Total -> sum of elements
@@ -3391,7 +3432,7 @@ SeeAlso: Max, Sort, Mean, Variance
  0 exch {add} Fold
 } def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Mean - returns the mean of the elements of an array
 Synopsis:
  array Mean -> double, mean of elements
@@ -3416,7 +3457,7 @@ SeeAlso: Max, Sort, Total, Variance
  size cvd exch Total exch div
 } def
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Variance - returns the variance of the elements of an array
 Synopsis:
  array Variance -> double, unbiased estimate of variance of elements
@@ -3447,7 +3488,7 @@ SeeAlso: Max, Sort, Total, Mean, StandardDeviation
 } def
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: StandardDeviation - returns the standard deviation of the elements of an array
 Synopsis:
  array StandardDeviation -> double, standard deviation
@@ -3477,6 +3518,7 @@ SeeAlso: Max, Sort, Total, Variance
 
 % the following two definitions are used to make escaping of
 % SLI strings in Mathematica easier
+% e.g, see extras/mathematica/LinkMathematica.m
 % Diesmann, 1.4.2003
 %
 /NewLine (\n) def
@@ -3484,7 +3526,7 @@ SeeAlso: Max, Sort, Total, Variance
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
   Name: CompileMath - converts traditional math to postfix notation
   Synopsis: string CompileMath -> proc
   Description:
@@ -3672,7 +3714,7 @@ def
 
    <</args [] >> begin                 % dictionary to store argument names of the pure function
                                        % in the #1, ..., #n notation. In case of only a single argument
-                                       % the # is sufficient
+                                       % the # is sufficient 
 % expr
      expr_sequence                        % length
 
@@ -3684,7 +3726,7 @@ def
 
      args length 0 gt
      {
-      {<< >> begin}
+      {<< >> begin} 
       args Sort Reverse { cvlit append (Set) cvn append } forall
 
       exch join {end} join
@@ -4034,7 +4076,7 @@ def
    {
     (#) cvn /out cdict AppendTo
 %   /argument match
-   (#) /args AppendTo
+   (#) /args AppendTo 
 %  1 /n_args Set
    }
    ifelse
@@ -4202,7 +4244,7 @@ end
 }
 def
 
-/** @BeginDocumentation
+/*BeginDocumentation
  Name: ExecMath - execute a math expression.
  Synopsis: (expr) ExecMath -> val
  Description:
@@ -4227,7 +4269,7 @@ def
   (] ) join_s
 } bind def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: mathexecutive - start interactive math session
 Description:
 Starts an interactive shell similar to the standard shell of SLI
@@ -4296,7 +4338,7 @@ systemdict /GNUreadline known
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Inline - Replace names in a procedure with their definitions.
 
 Synopsis:
@@ -4373,7 +4415,7 @@ SeeAlso: bind, CompileMath
   end
 } def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: Apply - calls a function with the elements of an array as arguments
 Synopsis: array proc Apply -> any
 Description:
@@ -4383,10 +4425,10 @@ Description:
 
  This is to be distinguished from Map which individually applies
  the function to the elements of the array,
-   [f(a(1),f(a(2), ...,f(a(n))]
+   [f(a(1),f(a(2), ...,f(a(n))] 
 
 Parameters:
-  array is an arbitrarily shaped heterogeneous array.
+  array is an arbitrarily shaped heterogeneous array. 
   proc is any procedure object (pure function).
 
 Examples:
@@ -4416,7 +4458,7 @@ def
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: Function - creates pure function with named arguments
 
 Synopsis:
@@ -4523,7 +4565,7 @@ def
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: ExecFunction - immediately execute a pure function with named arguments
 Synopsis:
    {proc} literal_1 ... literal_n ExecFunction -> val
@@ -4548,7 +4590,7 @@ Author: Diesmann
 } def
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: LambertW - simple iteration implementing the Lambert-W function
 Synopsis:
    double double LambertW -> double
@@ -4601,7 +4643,7 @@ Function def
 
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: LambertW0 - principal branch of the Lambert-W function
 Synopsis:
    double LambertW0 -> double
@@ -4646,7 +4688,7 @@ statusdict/have_gsl :: not
 }
 if
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: LambertWm1 - non-principal branch of the Lambert-W function
 Synopsis:
    double LambertWm1 -> double
@@ -4698,7 +4740,7 @@ statusdict/have_gsl :: not
 if
 
 %----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: ScanThread - execute a function to corresponding elements of n arrays
 Synopsis: [[a11 ... a1n]...[am1 ... amn]] {f} ScanThread -> -
 Description: ScanThread applies the given function to corresponding elements
@@ -4747,12 +4789,12 @@ SeeAlso: MapThread, forall, Map, MapIndexed, NestList, FoldList
 /cva [/intvectortype] /intvector2array load def
 /cva [/doublevectortype] /doublevector2array load def
 
-/** @BeginDocumentation
+/* BeginDocumentation
    Name: cv_iv - convert array of integers to an IntVector.
  */
 /cv_iv[/arraytype]  { {cvi} Map array2intvector } def
 
-/** @BeginDocumentation
+/* BeginDocumentation
    Name: cv_dv - convert array of integers to a DoubleVector.
  */
 
@@ -4825,7 +4867,7 @@ SeeAlso: MapThread, forall, Map, MapIndexed, NestList, FoldList
 
 /Map [/doublevectortype /proceduretype] /Map_ load def
 /Map [/intvectortype /proceduretype] /Map_ load def
-
+ 
 /arrayload_ /arrayload load def
 
 /arrayload [/arraytype] /arrayload_ load def
@@ -4842,7 +4884,7 @@ SeeAlso: MapThread, forall, Map, MapIndexed, NestList, FoldList
 /put  [/doublevectortype /integertype /doubletype] /put_dv_i_d load def
 /put  [/intvectortype /integertype /integertype] /put_iv_i_i load def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: zeros - Return a DoubleVector filled with zeros.
 Synapsis: n zeros -> [. 0. 0. ... .]
 Author: Marc-Oliver Gewaltig
@@ -4851,7 +4893,7 @@ SeeAlso: ones, arange
 */
 /zeros [/integertype] /zeros_dv load def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: ones - Return a DoubleVector filled with ones.
 Synapsis: n ones -> [. 1. 1. ... .]
 Author: Marc-Oliver Gewaltig
@@ -4861,7 +4903,7 @@ SeeAlso: zeros, arange
 
 /ones [/integertype] /ones_dv load def
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: arange - Return a Int/DoubleVector filled with a range of numbers.
 Synapsis: [n] arange -> [ 1  ... 10 ]
           [a b] arange -> [a ... b]
@@ -4879,15 +4921,15 @@ SeeAlso: zeros, ones, Range, array, LayoutArray, Table
 
 /getinterval [/intvectortype /integertype /integertype]
 {
-   2 arraystore arange
-   get_iv_iv
-} def
+   2 arraystore arange 
+   get_iv_iv 
+} def 
 
 /getinterval [/doublevectortype /integertype /integertype]
 {
-   2 arraystore arange
-   get_dv_iv
-} def
+   2 arraystore arange 
+   get_dv_iv 
+} def 
 
 /<. mark def
 /<# mark def
@@ -4896,7 +4938,7 @@ SeeAlso: zeros, ones, Range, array, LayoutArray, Table
 /#> { ] cv_iv } bind def
 
 /< mark def
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: <> - Construct an array or vector, depending on the element type.
 Synopsis: < obj1 ... obj n > -> [obj1, ... , objn]
           < int1 ... intn >  -> <# int1 ... intn #>
@@ -4907,11 +4949,11 @@ This constructor uses the type of the first element in the sequence to determine
 elements will be converted.
 FirstVersion: Dec 18 2012
 Author: Marc-Oliver Gewaltig
-*/
-/>
+*/ 
+/> 
 {
   counttomark arraystore exch ;
-  dup 0 get type
+  dup 0 get type 
   switchbegin
   1 index /doubletype eq { pop cv_dv exit} case
   1 index /integertype eq { pop cv_iv exit} case

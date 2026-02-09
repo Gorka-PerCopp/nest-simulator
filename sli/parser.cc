@@ -26,11 +26,14 @@
 
 #include "parser.h"
 
+// Generated includes:
+#include "config.h"
 
 // Includes from sli:
 #include "arraydatum.h"
 #include "namedatum.h"
 #include "scanner.h"
+#include "symboldatum.h"
 
 /*****************************************************************/
 /* parse                                                         */
@@ -53,26 +56,25 @@ Parser::init( std::istream& is )
 }
 
 Parser::Parser( std::istream& is )
-  : s( nullptr )
+  : s( NULL )
   , ParseStack( 128 )
 {
   init( is );
-  assert( s );
+  assert( s != NULL );
 }
 
-Parser::Parser()
-  : s( nullptr )
+Parser::Parser( void )
+  : s( NULL )
   , ParseStack( 128 )
 {
   init( std::cin );
-  assert( s );
+  assert( s != NULL );
 }
 
 
-bool
-Parser::operator()( Token& t )
+bool Parser::operator()( Token& t )
 {
-  assert( s );
+  assert( s != NULL );
 
   Token pt;
 
@@ -102,9 +104,14 @@ Parser::operator()( Token& t )
       }
       else if ( t.contains( s->BeginArraySymbol ) )
       {
+#ifdef PS_ARRAYS
         Token cb( new NameDatum( "[" ) );
         t.move( cb );
         result = tokencontinue;
+#else
+        ParseStack.push( new ArrayDatum() );
+        result = scancontinue;
+#endif
       }
       else if ( t.contains( s->EndProcedureSymbol ) )
       {
@@ -128,9 +135,29 @@ Parser::operator()( Token& t )
       }
       else if ( t.contains( s->EndArraySymbol ) )
       {
+#ifdef PS_ARRAYS
         Token ob( new NameDatum( "]" ) );
         t.move( ob );
         result = tokencontinue;
+#else
+        if ( not ParseStack.empty() )
+        {
+          ParseStack.pop_move( pt );
+          if ( pt->isoftype( SLIInterpreter::Arraytype ) )
+          {
+            t.move( pt ); // array completed
+            result = tokencontinue;
+          }
+          else
+          {
+            result = endprocexpected;
+          }
+        }
+        else
+        {
+          result = noopenarray;
+        }
+#endif
       }
       else if ( t.contains( s->EndSymbol ) )
       {
@@ -155,13 +182,14 @@ Parser::operator()( Token& t )
           if ( pt->isoftype( SLIInterpreter::Arraytype ) )
           {
             ArrayDatum* pa = dynamic_cast< ArrayDatum* >( pt.datum() );
-            assert( pa );
+            assert( pa != NULL );
             pa->push_back( t );
           }
           else // now it must be a procedure
           {
-            LitprocedureDatum* pp = dynamic_cast< LitprocedureDatum* >( pt.datum() );
-            assert( pp );
+            LitprocedureDatum* pp =
+              dynamic_cast< LitprocedureDatum* >( pt.datum() );
+            assert( pp != NULL );
             pp->set_executable();
             pp->push_back( t );
           }
@@ -177,7 +205,7 @@ Parser::operator()( Token& t )
     } // if(ok)
     //      else std::cerr << "<Scanner> : unable to scan input, Result:" << ok
     //      << '\n';
-  } while ( result == tokencontinue or result == scancontinue );
+  } while ( ( result == tokencontinue ) || ( result == scancontinue ) );
 
   if ( result != tokencompleted )
   {
@@ -207,14 +235,12 @@ Parser::operator()( Token& t )
   return ( result == tokencompleted );
 }
 
-bool
-operator==( Parser const& p1, Parser const& p2 )
+bool operator==( Parser const& p1, Parser const& p2 )
 {
   return &p1 == &p2;
 }
 
-std::ostream&
-operator<<( std::ostream& out, const Parser& p )
+std::ostream& operator<<( std::ostream& out, const Parser& p )
 {
   out << "Parser(" << p.scan() << ')' << std::endl;
   return out;

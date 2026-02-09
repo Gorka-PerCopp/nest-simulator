@@ -23,7 +23,12 @@
 #include "datum.h"
 
 // Includes from sli:
+#include "arraydatum.h"
+#include "booldatum.h"
 #include "dictdatum.h"
+#include "dictutils.h"
+#include "doubledatum.h"
+#include "integerdatum.h"
 #include "stringdatum.h"
 #include "token.h"
 

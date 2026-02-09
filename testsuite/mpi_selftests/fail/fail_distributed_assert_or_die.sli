@@ -20,7 +20,7 @@
  *
  */
 
- /** @BeginDocumentation
+ /* BeginDocumentation
 Name: testsuite::fail_distributed_assert_or_die - self test of distributed_assert_or_die
 
 Synopsis: nest_indirect distributed_assert_or_die.sli -> -
@@ -42,7 +42,7 @@ SeeAlso: testsuite::crash_distributed_assert_or_die, testsuite::test_distributed
 
 [1 2 4]
 {
-  % only rank zero leaves true on stack, but leave false if 4 procs
-  0 Rank eq { NumProcesses 4 lt } if
+  % only rank zero leaves true on stack, but leave false if 4 procs  
+  0 Rank eq { NumProcesses 4 lt } if  
 }
 distributed_assert_or_die

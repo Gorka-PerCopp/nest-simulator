@@ -38,7 +38,7 @@ class GenericDatum : public TypedDatum< slt >
 {
 
   virtual Datum*
-  clone() const
+  clone( void ) const
   {
     return new GenericDatum< D, slt >( *this );
   }
@@ -60,24 +60,26 @@ public:
   {
     TypedDatum< slt >::unset_executable();
   }
+  GenericDatum( const GenericDatum< D, slt >& gd )
+    : TypedDatum< slt >( gd )
+    , d( gd.d )
+  {
+  }
 
-  GenericDatum( const GenericDatum< D, slt >& gd ) = default;
-
-  const D&
-  operator=( const D& d_s )
+  const D& operator=( const D& d_s )
   {
     d = d_s;
     return d;
   }
 
   const D&
-  get() const
+  get( void ) const
   {
     return d;
   }
 
   D&
-  get()
+  get( void )
   {
     return d;
   }
@@ -110,11 +112,12 @@ public:
   bool
   equals( const Datum* dat ) const
   {
-    const GenericDatum< D, slt >* ddc = dynamic_cast< GenericDatum< D, slt >* >( const_cast< Datum* >( dat ) );
+    const GenericDatum< D, slt >* ddc =
+      dynamic_cast< GenericDatum< D, slt >* >( const_cast< Datum* >( dat ) );
 
     //    std::cerr << "d = " << d << " ddc = " << ddc << " dat = " << dat <<
     //    std::endl;
-    if ( not ddc )
+    if ( ddc == NULL )
     {
       return false;
     }

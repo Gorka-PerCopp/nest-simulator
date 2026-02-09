@@ -22,20 +22,8 @@
 
 #include "mcculloch_pitts_neuron.h"
 
-// Includes from nestkernel
-#include "kernel_manager.h"
-#include "model_manager_impl.h"
-#include "nest_impl.h"
-#include "universal_data_logger_impl.h"
-
 namespace nest
 {
-void
-register_mcculloch_pitts_neuron( const std::string& name )
-{
-  register_node_model< mcculloch_pitts_neuron >( name );
-}
-
 
 void
 gainfunction_mcculloch_pitts::get( DictionaryDatum& d ) const
@@ -44,9 +32,9 @@ gainfunction_mcculloch_pitts::get( DictionaryDatum& d ) const
 }
 
 void
-gainfunction_mcculloch_pitts::set( const DictionaryDatum& d, Node* node )
+gainfunction_mcculloch_pitts::set( const DictionaryDatum& d )
 {
-  updateValueParam< double >( d, names::theta, theta_, node );
+  updateValue< double >( d, names::theta, theta_ );
 }
 
 /*
@@ -57,7 +45,7 @@ template <>
 void
 RecordablesMap< nest::mcculloch_pitts_neuron >::create()
 {
-  // use standard names wherever you can for consistency!
+  // use standard names whereever you can for consistency!
   insert_( names::S, &nest::mcculloch_pitts_neuron::get_output_state__ );
   insert_( names::h, &nest::mcculloch_pitts_neuron::get_input__ );
 }

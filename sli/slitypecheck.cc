@@ -32,7 +32,7 @@
 #include "namedatum.h"
 #include "triedatum.h"
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: trie - Create a new type-trie object
 Synopsis: /name -> /name typetrie
 Description: Create a new typetrie with internal
@@ -56,7 +56,7 @@ TrieFunction::execute( SLIInterpreter* i ) const
 
   LiteralDatum* name = dynamic_cast< LiteralDatum* >( i->OStack.top().datum() );
 
-  if ( not name )
+  if ( name == NULL )
   {
     i->raiseerror( i->ArgumentTypeError );
     return;
@@ -70,7 +70,7 @@ TrieFunction::execute( SLIInterpreter* i ) const
 }
 
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: addtotrie - Add a function variant to a trie-object
 Synopsis: trie [type-list] obj addtotrie -> trie
 Parameters:
@@ -97,7 +97,7 @@ AddtotrieFunction::execute( SLIInterpreter* i ) const
 
   TrieDatum* trie = dynamic_cast< TrieDatum* >( i->OStack.pick( 2 ).datum() );
 
-  if ( not trie )
+  if ( trie == NULL )
   {
     i->raiseerror( i->ArgumentTypeError );
     return;
@@ -108,7 +108,7 @@ AddtotrieFunction::execute( SLIInterpreter* i ) const
   // Construct a TypeArray from the TokenArray
   ArrayDatum* ad = dynamic_cast< ArrayDatum* >( i->OStack.pick( 1 ).datum() );
 
-  if ( not ad )
+  if ( ad == NULL )
   {
     i->raiseerror( i->ArgumentTypeError );
     return;
@@ -116,8 +116,10 @@ AddtotrieFunction::execute( SLIInterpreter* i ) const
 
   if ( ad->size() == 0 )
   {
-    i->message( SLIInterpreter::M_ERROR, "addtotrie", "type-array must not be empty." );
-    i->message( SLIInterpreter::M_ERROR, "addtotrie", "No change was made to the trie." );
+    i->message(
+      SLIInterpreter::M_ERROR, "addtotrie", "type-array must not be empty." );
+    i->message(
+      SLIInterpreter::M_ERROR, "addtotrie", "No change was made to the trie." );
     i->raiseerror( i->ArgumentTypeError );
     return;
   }
@@ -127,14 +129,19 @@ AddtotrieFunction::execute( SLIInterpreter* i ) const
   {
     LiteralDatum* nd = dynamic_cast< LiteralDatum* >( t->datum() );
 
-    if ( not nd )
+    if ( nd == NULL )
     {
       std::ostringstream message;
       message << "In trie " << trie->getname() << ". "
-              << "Error at array position " << t - ad->begin() << '.' << std::ends;
+              << "Error at array position " << t - ad->begin() << '.'
+              << std::ends;
       i->message( SLIInterpreter::M_ERROR, "addtotrie", message.str().c_str() );
-      i->message( SLIInterpreter::M_ERROR, "addtotrie", "Array must contain typenames as literals." );
-      i->message( SLIInterpreter::M_ERROR, "addtotrie", "No change was made to the trie." );
+      i->message( SLIInterpreter::M_ERROR,
+        "addtotrie",
+        "Array must contain typenames as literals." );
+      i->message( SLIInterpreter::M_ERROR,
+        "addtotrie",
+        "No change was made to the trie." );
 
       i->raiseerror( i->ArgumentTypeError );
       return;
@@ -148,7 +155,7 @@ AddtotrieFunction::execute( SLIInterpreter* i ) const
   i->EStack.pop();
 }
 
-/** @BeginDocumentation
+/* BeginDocumentation
 
    Name: cva_t - Converts a type trie to an equivalent array
 
@@ -205,7 +212,7 @@ Cva_tFunction::execute( SLIInterpreter* i ) const
   i->OStack.pop();
 
   TrieDatum* trie = dynamic_cast< TrieDatum* >( trietoken.datum() );
-  assert( trie );
+  assert( trie != NULL );
 
   Name triename( trie->getname() );
   i->OStack.push( LiteralDatum( triename ) );
@@ -221,20 +228,21 @@ TrieInfoFunction::execute( SLIInterpreter* i ) const
 
   i->EStack.pop();
 
-  OstreamDatum* osd = dynamic_cast< OstreamDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( osd );
+  OstreamDatum* osd =
+    dynamic_cast< OstreamDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( osd != 0 );
 
   Token trietoken;
   trietoken.move( i->OStack.top() );
 
   TrieDatum* trie = dynamic_cast< TrieDatum* >( trietoken.datum() );
-  assert( trie );
+  assert( trie != NULL );
 
   trie->get().info( **osd );
   i->OStack.pop( 2 );
 }
 
-/** @BeginDocumentation
+/* BeginDocumentation
 
    Name: cvt_a - Converts an array to the equivalent type trie.
 
@@ -304,19 +312,20 @@ Cvt_aFunction::execute( SLIInterpreter* i ) const
   i->EStack.pop();
   assert( i->OStack.size() > 1 );
 
-  LiteralDatum* name = dynamic_cast< LiteralDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( name );
+  LiteralDatum* name =
+    dynamic_cast< LiteralDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( name != NULL );
   ArrayDatum* arr = dynamic_cast< ArrayDatum* >( i->OStack.pick( 0 ).datum() );
-  assert( arr );
+  assert( arr != NULL );
 
   TrieDatum* trie = new TrieDatum( *name, *arr );
-  assert( trie );
+  assert( trie != NULL );
   Token tmp( trie );
   i->OStack.pop();
   i->OStack.push_move( tmp );
 }
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: type - Return the type of an object
 Synopsis: obj type -> /typename
 Examples: 1 type -> /integertype

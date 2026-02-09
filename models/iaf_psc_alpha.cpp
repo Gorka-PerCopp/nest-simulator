@@ -26,28 +26,25 @@
 #include <limits>
 
 // Includes from libnestutil:
-#include "dict_util.h"
-#include "exceptions.h"
-#include "iaf_propagator.h"
-#include "kernel_manager.h"
-#include "nest_impl.h"
 #include "numerics.h"
-#include "ring_buffer_impl.h"
+#include "propagator_stability.h"
+
+// Includes from nestkernel:
+#include "exceptions.h"
+#include "kernel_manager.h"
 #include "universal_data_logger_impl.h"
 
 // Includes from sli:
+#include "dict.h"
 #include "dictutils.h"
+#include "doubledatum.h"
+#include "integerdatum.h"
 
-nest::RecordablesMap< nest::iaf_psc_alpha > nest::iaf_psc_alpha::recordablesMap_;
+nest::RecordablesMap< nest::iaf_psc_alpha >
+  nest::iaf_psc_alpha::recordablesMap_;
 
 namespace nest
 {
-void
-register_iaf_psc_alpha( const std::string& name )
-{
-  register_node_model< iaf_psc_alpha >( name );
-}
-
 
 /*
  * Override the create() method with one call to RecordablesMap::insert_()
@@ -57,8 +54,10 @@ template <>
 void
 RecordablesMap< iaf_psc_alpha >::create()
 {
-  // use standard names wherever you can for consistency!
+  // use standard names whereever you can for consistency!
   insert_( names::V_m, &iaf_psc_alpha::get_V_m_ );
+  insert_( names::weighted_spikes_ex, &iaf_psc_alpha::get_weighted_spikes_ex_ );
+  insert_( names::weighted_spikes_in, &iaf_psc_alpha::get_weighted_spikes_in_ );
   insert_( names::I_syn_ex, &iaf_psc_alpha::get_I_syn_ex_ );
   insert_( names::I_syn_in, &iaf_psc_alpha::get_I_syn_in_ );
 }
@@ -112,15 +111,15 @@ iaf_psc_alpha::Parameters_::get( DictionaryDatum& d ) const
 }
 
 double
-iaf_psc_alpha::Parameters_::set( const DictionaryDatum& d, Node* node )
+iaf_psc_alpha::Parameters_::set( const DictionaryDatum& d )
 {
   // if E_L_ is changed, we need to adjust all variables defined relative to
   // E_L_
   const double ELold = E_L_;
-  updateValueParam< double >( d, names::E_L, E_L_, node );
+  updateValue< double >( d, names::E_L, E_L_ );
   const double delta_EL = E_L_ - ELold;
 
-  if ( updateValueParam< double >( d, names::V_reset, V_reset_, node ) )
+  if ( updateValue< double >( d, names::V_reset, V_reset_ ) )
   {
     V_reset_ -= E_L_;
   }
@@ -129,7 +128,7 @@ iaf_psc_alpha::Parameters_::set( const DictionaryDatum& d, Node* node )
     V_reset_ -= delta_EL;
   }
 
-  if ( updateValueParam< double >( d, names::V_th, Theta_, node ) )
+  if ( updateValue< double >( d, names::V_th, Theta_ ) )
   {
     Theta_ -= E_L_;
   }
@@ -138,7 +137,7 @@ iaf_psc_alpha::Parameters_::set( const DictionaryDatum& d, Node* node )
     Theta_ -= delta_EL;
   }
 
-  if ( updateValueParam< double >( d, names::V_min, LowerBound_, node ) )
+  if ( updateValue< double >( d, names::V_min, LowerBound_ ) )
   {
     LowerBound_ -= E_L_;
   }
@@ -147,12 +146,12 @@ iaf_psc_alpha::Parameters_::set( const DictionaryDatum& d, Node* node )
     LowerBound_ -= delta_EL;
   }
 
-  updateValueParam< double >( d, names::I_e, I_e_, node );
-  updateValueParam< double >( d, names::C_m, C_, node );
-  updateValueParam< double >( d, names::tau_m, Tau_, node );
-  updateValueParam< double >( d, names::tau_syn_ex, tau_ex_, node );
-  updateValueParam< double >( d, names::tau_syn_in, tau_in_, node );
-  updateValueParam< double >( d, names::t_ref, TauR_, node );
+  updateValue< double >( d, names::I_e, I_e_ );
+  updateValue< double >( d, names::C_m, C_ );
+  updateValue< double >( d, names::tau_m, Tau_ );
+  updateValue< double >( d, names::tau_syn_ex, tau_ex_ );
+  updateValue< double >( d, names::tau_syn_in, tau_in_ );
+  updateValue< double >( d, names::t_ref, TauR_ );
 
   if ( C_ <= 0.0 )
   {
@@ -164,7 +163,7 @@ iaf_psc_alpha::Parameters_::set( const DictionaryDatum& d, Node* node )
     throw BadProperty( "Membrane time constant must be > 0." );
   }
 
-  if ( tau_ex_ <= 0.0 or tau_in_ <= 0.0 )
+  if ( tau_ex_ <= 0.0 || tau_in_ <= 0.0 )
   {
     throw BadProperty( "All synaptic time constants must be > 0." );
   }
@@ -188,9 +187,11 @@ iaf_psc_alpha::State_::get( DictionaryDatum& d, const Parameters_& p ) const
 }
 
 void
-iaf_psc_alpha::State_::set( const DictionaryDatum& d, const Parameters_& p, double delta_EL, Node* node )
+iaf_psc_alpha::State_::set( const DictionaryDatum& d,
+  const Parameters_& p,
+  double delta_EL )
 {
-  if ( updateValueParam< double >( d, names::V_m, y3_, node ) )
+  if ( updateValue< double >( d, names::V_m, y3_ ) )
   {
     y3_ -= p.E_L_;
   }
@@ -216,7 +217,7 @@ iaf_psc_alpha::Buffers_::Buffers_( const Buffers_&, iaf_psc_alpha& n )
  * ---------------------------------------------------------------- */
 
 iaf_psc_alpha::iaf_psc_alpha()
-  : ArchivingNode()
+  : Archiving_Node()
   , P_()
   , S_()
   , B_( *this )
@@ -225,7 +226,7 @@ iaf_psc_alpha::iaf_psc_alpha()
 }
 
 iaf_psc_alpha::iaf_psc_alpha( const iaf_psc_alpha& n )
-  : ArchivingNode( n )
+  : Archiving_Node( n )
   , P_( n.P_ )
   , S_( n.S_ )
   , B_( n.B_, *this )
@@ -237,17 +238,26 @@ iaf_psc_alpha::iaf_psc_alpha( const iaf_psc_alpha& n )
  * ---------------------------------------------------------------- */
 
 void
-iaf_psc_alpha::init_buffers_()
+iaf_psc_alpha::init_state_( const Node& proto )
 {
-  B_.input_buffer_.clear(); // includes resize
-
-  B_.logger_.reset();
-
-  ArchivingNode::clear_history();
+  const iaf_psc_alpha& pr = downcast< iaf_psc_alpha >( proto );
+  S_ = pr.S_;
 }
 
 void
-iaf_psc_alpha::pre_run_hook()
+iaf_psc_alpha::init_buffers_()
+{
+  B_.ex_spikes_.clear(); // includes resize
+  B_.in_spikes_.clear(); // includes resize
+  B_.currents_.clear();  // includes resize
+
+  B_.logger_.reset();
+
+  Archiving_Node::clear_history();
+}
+
+void
+iaf_psc_alpha::calibrate()
 {
   // ensures initialization in case mm connected after Simulate
   B_.logger_.init();
@@ -268,8 +278,10 @@ iaf_psc_alpha::pre_run_hook()
   V_.P21_in_ = h * V_.P11_in_;
 
   // these are determined according to a numeric stability criterion
-  std::tie( V_.P31_ex_, V_.P32_ex_ ) = IAFPropagatorAlpha( P_.tau_ex_, P_.Tau_, P_.C_ ).evaluate( h );
-  std::tie( V_.P31_in_, V_.P32_in_ ) = IAFPropagatorAlpha( P_.tau_in_, P_.Tau_, P_.C_ ).evaluate( h );
+  V_.P31_ex_ = propagator_31( P_.tau_ex_, P_.Tau_, P_.C_, h );
+  V_.P32_ex_ = propagator_32( P_.tau_ex_, P_.Tau_, P_.C_, h );
+  V_.P31_in_ = propagator_31( P_.tau_in_, P_.Tau_, P_.C_, h );
+  V_.P32_in_ = propagator_32( P_.tau_in_, P_.Tau_, P_.C_, h );
 
   V_.EPSCInitialValue_ = 1.0 * numerics::e / P_.tau_ex_;
   V_.IPSCInitialValue_ = 1.0 * numerics::e / P_.tau_in_;
@@ -306,13 +318,18 @@ iaf_psc_alpha::pre_run_hook()
 void
 iaf_psc_alpha::update( Time const& origin, const long from, const long to )
 {
+  assert(
+    to >= 0 && ( delay ) from < kernel().connection_manager.get_min_delay() );
+  assert( from < to );
+
   for ( long lag = from; lag < to; ++lag )
   {
     if ( S_.r_ == 0 )
     {
       // neuron not refractory
-      S_.y3_ = V_.P30_ * ( S_.y0_ + P_.I_e_ ) + V_.P31_ex_ * S_.dI_ex_ + V_.P32_ex_ * S_.I_ex_ + V_.P31_in_ * S_.dI_in_
-        + V_.P32_in_ * S_.I_in_ + V_.expm1_tau_m_ * S_.y3_ + S_.y3_;
+      S_.y3_ = V_.P30_ * ( S_.y0_ + P_.I_e_ ) + V_.P31_ex_ * S_.dI_ex_
+        + V_.P32_ex_ * S_.I_ex_ + V_.P31_in_ * S_.dI_in_ + V_.P32_in_ * S_.I_in_
+        + V_.expm1_tau_m_ * S_.y3_ + S_.y3_;
 
       // lower bound of membrane potential
       S_.y3_ = ( S_.y3_ < P_.LowerBound_ ? P_.LowerBound_ : S_.y3_ );
@@ -327,13 +344,9 @@ iaf_psc_alpha::update( Time const& origin, const long from, const long to )
     S_.I_ex_ = V_.P21_ex_ * S_.dI_ex_ + V_.P22_ex_ * S_.I_ex_;
     S_.dI_ex_ *= V_.P11_ex_;
 
-    // get read access to the correct input-buffer slot
-    const size_t input_buffer_slot = kernel().event_delivery_manager.get_modulo( lag );
-    auto& input = B_.input_buffer_.get_values_all_channels( input_buffer_slot );
-
     // Apply spikes delivered in this step; spikes arriving at T+1 have
     // an immediate effect on the state of the neuron
-    V_.weighted_spikes_ex_ = input[ Buffers_::SYN_EX ];
+    V_.weighted_spikes_ex_ = B_.ex_spikes_.get_value( lag );
     S_.dI_ex_ += V_.EPSCInitialValue_ * V_.weighted_spikes_ex_;
 
     // alpha shape EPSCs
@@ -342,7 +355,7 @@ iaf_psc_alpha::update( Time const& origin, const long from, const long to )
 
     // Apply spikes delivered in this step; spikes arriving at T+1 have
     // an immediate effect on the state of the neuron
-    V_.weighted_spikes_in_ = input[ Buffers_::SYN_IN ];
+    V_.weighted_spikes_in_ = B_.in_spikes_.get_value( lag );
     S_.dI_in_ += V_.IPSCInitialValue_ * V_.weighted_spikes_in_;
 
     // threshold crossing
@@ -361,10 +374,7 @@ iaf_psc_alpha::update( Time const& origin, const long from, const long to )
     }
 
     // set new input current
-    S_.y0_ = input[ Buffers_::I0 ];
-
-    // reset all values in the currently processed input-buffer slot
-    B_.input_buffer_.reset_values_all_channels( input_buffer_slot );
+    S_.y0_ = B_.currents_.get_value( lag );
 
     // log state data
     B_.logger_.record_data( origin.get_steps() + lag );
@@ -374,29 +384,35 @@ iaf_psc_alpha::update( Time const& origin, const long from, const long to )
 void
 iaf_psc_alpha::handle( SpikeEvent& e )
 {
-  assert( e.get_delay_steps() > 0 );
-
-  const size_t input_buffer_slot = kernel().event_delivery_manager.get_modulo(
-    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ) );
+  assert( e.get_delay() > 0 );
 
   const double s = e.get_weight() * e.get_multiplicity();
 
-  // separate buffer channels for excitatory and inhibitory inputs
-  B_.input_buffer_.add_value( input_buffer_slot, s > 0 ? Buffers_::SYN_EX : Buffers_::SYN_IN, s );
+  if ( e.get_weight() > 0.0 )
+  {
+    B_.ex_spikes_.add_value( e.get_rel_delivery_steps(
+                               kernel().simulation_manager.get_slice_origin() ),
+      s );
+  }
+  else
+  {
+    B_.in_spikes_.add_value( e.get_rel_delivery_steps(
+                               kernel().simulation_manager.get_slice_origin() ),
+      s );
+  }
 }
 
 void
 iaf_psc_alpha::handle( CurrentEvent& e )
 {
-  assert( e.get_delay_steps() > 0 );
-
-  const size_t input_buffer_slot = kernel().event_delivery_manager.get_modulo(
-    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ) );
+  assert( e.get_delay() > 0 );
 
   const double I = e.get_current();
   const double w = e.get_weight();
 
-  B_.input_buffer_.add_value( input_buffer_slot, Buffers_::I0, w * I );
+  B_.currents_.add_value(
+    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ),
+    w * I );
 }
 
 void

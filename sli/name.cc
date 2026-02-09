@@ -69,7 +69,7 @@ Name::print_handle( std::ostream& o ) const
 
 
 const std::string&
-Name::toString() const
+Name::toString( void ) const
 {
   return handleTableInstance_()[ handle_ ];
 }
@@ -108,7 +108,9 @@ Name::list( std::ostream& out )
 {
   Name::HandleMap_& map = handleMapInstance_();
   out << "\nHandle Map content:" << std::endl;
-  for ( Name::HandleMap_::const_iterator where = map.begin(); where != map.end(); ++where )
+  for ( Name::HandleMap_::const_iterator where = map.begin();
+        where != map.end();
+        ++where )
   {
     out << ( *where ).first << " -> " << ( *where ).second << std::endl;
   }
@@ -124,8 +126,7 @@ Name::info( std::ostream& out )
 }
 
 
-std::ostream&
-operator<<( std::ostream& o, const Name& n )
+std::ostream& operator<<( std::ostream& o, const Name& n )
 {
   o << n.toString().c_str();
   return o;

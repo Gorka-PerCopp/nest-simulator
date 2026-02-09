@@ -20,6 +20,13 @@
  *
  */
 
+/**
+ * \file growth_curve.cpp
+ * Implementation of growth_curve
+ * \author Mikael Naveau
+ * \date July 2013
+ */
+
 #include "growth_curve.h"
 
 // C++ includes:
@@ -64,7 +71,8 @@ nest::GrowthCurveLinear::update( double t,
   double growth_rate ) const
 {
   const double Ca = Ca_minus * std::exp( ( t_minus - t ) / tau_Ca );
-  const double z_value = growth_rate * tau_Ca * ( Ca - Ca_minus ) / eps_ + growth_rate * ( t - t_minus ) + z_minus;
+  const double z_value = growth_rate * tau_Ca * ( Ca - Ca_minus ) / eps_
+    + growth_rate * ( t - t_minus ) + z_minus;
 
   return std::max( z_value, 0.0 );
 }
@@ -78,7 +86,6 @@ nest::GrowthCurveGaussian::GrowthCurveGaussian()
   , eta_( 0.1 )
   , eps_( 0.7 )
 {
-  compute_local_();
 }
 
 void
@@ -94,7 +101,6 @@ nest::GrowthCurveGaussian::set( const DictionaryDatum& d )
 {
   updateValue< double >( d, names::eps, eps_ );
   updateValue< double >( d, names::eta, eta_ );
-  compute_local_();
 }
 
 double
@@ -108,26 +114,21 @@ nest::GrowthCurveGaussian::update( double t,
   // Numerical integration from t_minus to t
   // use standard forward Euler numerics
   const double h = Time::get_resolution().get_ms();
-  const double inv_tau_Ca = 1.0 / tau_Ca;
+  const double zeta = ( eta_ - eps_ ) / ( 2.0 * sqrt( log( 2.0 ) ) );
+  const double xi = ( eta_ + eps_ ) / 2.0;
 
   double z_value = z_minus;
   double Ca = Ca_minus;
 
-  for ( double lag = t_minus; lag < ( t - h * 0.5 ); lag += h )
+  for ( double lag = t_minus; lag < ( t - h / 2.0 ); lag += h )
   {
-    Ca = Ca - ( ( Ca * inv_tau_Ca ) * h );
-    const double dz = h * growth_rate * ( 2.0 * std::exp( -std::pow( ( Ca - xi_ ) * inv_zeta_, 2 ) ) - 1.0 );
-    z_value += dz;
+    Ca = Ca - ( ( Ca / tau_Ca ) * h );
+    const double dz =
+      h * growth_rate * ( 2.0 * exp( -pow( ( Ca - xi ) / zeta, 2 ) ) - 1.0 );
+    z_value = z_value + dz;
   }
 
   return std::max( z_value, 0.0 );
-}
-
-void
-nest::GrowthCurveGaussian::compute_local_()
-{
-  inv_zeta_ = 2.0 * numerics::sqrt_log_two / ( eta_ - eps_ );
-  xi_ = ( eta_ + eps_ ) * 0.5;
 }
 
 /* ----------------------------------------------------------------
@@ -180,7 +181,8 @@ nest::GrowthCurveSigmoid::update( double t,
   for ( double lag = t_minus; lag < ( t - h / 2.0 ); lag += h )
   {
     Ca = Ca - ( ( Ca / tau_Ca ) * h );
-    const double dz = h * growth_rate * ( ( 2.0 / ( 1.0 + exp( ( Ca - eps_ ) / psi_ ) ) ) - 1.0 );
+    const double dz = h * growth_rate
+      * ( ( 2.0 / ( 1.0 + exp( ( Ca - eps_ ) / psi_ ) ) ) - 1.0 );
     z_value = z_value + dz;
   }
 

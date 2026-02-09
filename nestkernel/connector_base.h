@@ -44,7 +44,6 @@
 #include "nest_names.h"
 #include "node.h"
 #include "source.h"
-#include "source_table.h"
 #include "spikecounter.h"
 
 // Includes from sli:
@@ -57,10 +56,6 @@ namespace nest
 /**
  * Base class to allow storing Connectors for different synapse types
  * in vectors. We define the interface here to avoid casting.
- *
- * @note If any member functions need to do something special for a given connection type,
- * declare specializations in the corresponding header file and define them in the corresponding
- * source file. For an example, see `eprop_synapse_bsshslm_2020`.
  */
 class ConnectorBase
 {
@@ -69,7 +64,7 @@ public:
   // Destructor needs to be declared virtual to avoid undefined
   // behavior, avoid possible memory leak and needs to be defined to
   // avoid linker error, see, e.g., Meyers, S. (2005) p40ff
-  virtual ~ConnectorBase() {};
+  virtual ~ConnectorBase(){};
 
   /**
    * Return syn_id_ of the synapse type of this Connector (index in
@@ -86,134 +81,151 @@ public:
    * Write status of the connection at position lcid to the dictionary
    * dict.
    */
-  virtual void get_synapse_status( const size_t tid, const size_t lcid, DictionaryDatum& dict ) const = 0;
+  virtual void get_synapse_status( const thread tid,
+    const index lcid,
+    DictionaryDatum& dict ) const = 0;
 
   /**
    * Set status of the connection at position lcid according to the
    * dictionary dict.
    */
-  virtual void set_synapse_status( const size_t lcid, const DictionaryDatum& dict, ConnectorModel& cm ) = 0;
+  virtual void set_synapse_status( const index lcid,
+    const DictionaryDatum& dict,
+    ConnectorModel& cm ) = 0;
 
   /**
-   * Add ConnectionID with given source_node_id and lcid to conns. If
-   * target_node_id is given, only add connection if target_node_id matches
-   * the node_id of the target of the connection.
+   * Add ConnectionID with given source_gid and lcid to conns. If
+   * target_gid is given, only add connection if target_gid matches
+   * the gid of the target of the connection.
    */
-  virtual void get_connection( const size_t source_node_id,
-    const size_t target_node_id,
-    const size_t tid,
-    const size_t lcid,
+  virtual void get_connection( const index source_gid,
+    const index target_gid,
+    const thread tid,
+    const index lcid,
     const long synapse_label,
     std::deque< ConnectionID >& conns ) const = 0;
 
   /**
-   * Add ConnectionID with given source_node_id and lcid to conns. If
-   * target_neuron_node_ids is given, only add connection if
-   * target_neuron_node_ids contains the node ID of the target of the connection.
+   * Add ConnectionIDs with given source_gid to conns, looping over
+   * all lcids. If target_gid is given, only add connection if
+   * target_gid matches the gid of the target of the connection.
    */
-  virtual void get_connection_with_specified_targets( const size_t source_node_id,
-    const std::vector< size_t >& target_neuron_node_ids,
-    const size_t tid,
-    const size_t lcid,
+  virtual void get_all_connections( const index source_gid,
+    const index target_gid,
+    const thread tid,
     const long synapse_label,
     std::deque< ConnectionID >& conns ) const = 0;
 
   /**
-   * Add ConnectionIDs with given source_node_id to conns, looping over
-   * all lcids. If target_node_id is given, only add connection if
-   * target_node_id matches the node ID of the target of the connection.
+   * For a given target_gid add lcids of all connections with matching
+   * gid of target to source_lcids.
    */
-  virtual void get_all_connections( const size_t source_node_id,
-    const size_t target_node_id,
-    const size_t tid,
-    const long synapse_label,
-    std::deque< ConnectionID >& conns ) const = 0;
+  virtual void get_source_lcids( const thread tid,
+    const index target_gid,
+    std::vector< index >& source_lcids ) const = 0;
 
   /**
-   * For a given target_node_id add lcids of all connections with matching
-   * node ID of target to source_lcids.
+   * For a given start_lcid add gids of all targets that belong to the
+   * same source to target_gids.
    */
-  virtual void
-  get_source_lcids( const size_t tid, const size_t target_node_id, std::vector< size_t >& source_lcids ) const = 0;
-
-  /**
-   * For a given start_lcid add node IDs of all targets that belong to the
-   * same source to target_node_ids.
-   */
-  virtual void get_target_node_ids( const size_t tid,
-    const size_t start_lcid,
+  virtual void get_target_gids( const thread tid,
+    const index start_lcid,
     const std::string& post_synaptic_element,
-    std::vector< size_t >& target_node_ids ) const = 0;
+    std::vector< index >& target_gids ) const = 0;
 
   /**
-   * For a given lcid return the node ID of the target of the connection.
+   * For a given lcid return the gid of the target of the connection.
    */
-  virtual size_t get_target_node_id( const size_t tid, const unsigned int lcid ) const = 0;
+  virtual index get_target_gid( const thread tid,
+    const unsigned int lcid ) const = 0;
 
   /**
    * Send the event e to all connections of this Connector.
    */
-  virtual void send_to_all( const size_t tid, const std::vector< ConnectorModel* >& cm, Event& e ) = 0;
+  virtual void send_to_all( const thread tid,
+    const std::vector< ConnectorModel* >& cm,
+    Event& e ) = 0;
 
   /**
    * Send the event e to the connection at position lcid. Return bool
    * indicating whether the following connection belongs to the same
    * source.
    */
-  virtual size_t send( const size_t tid, const size_t lcid, const std::vector< ConnectorModel* >& cm, Event& e ) = 0;
+  virtual index send( const thread tid,
+    const index lcid,
+    const std::vector< ConnectorModel* >& cm,
+    Event& e ) = 0;
 
-  virtual void
-  send_weight_event( const size_t tid, const unsigned int lcid, Event& e, const CommonSynapseProperties& cp ) = 0;
+  virtual void send_weight_event( const thread tid,
+    const unsigned int lcid,
+    Event& e,
+    const CommonSynapseProperties& cp ) = 0;
 
   /**
    * Update weights of dopamine modulated STDP connections.
    */
-  virtual void trigger_update_weight( const long vt_node_id,
-    const size_t tid,
+  virtual void trigger_update_weight( const long vt_gid,
+    const thread tid,
+    const double trace,
+    const double t_trig,
+    const std::vector< ConnectorModel* >& cm ) = 0;
+
+  /**
+   * Update weights of dopamine modulated STDP connections.
+   */
+  virtual void trigger_update_weight( const long vt_gid,
+    const thread tid,
     const std::vector< spikecounter >& dopa_spikes,
     const double t_trig,
     const std::vector< ConnectorModel* >& cm ) = 0;
 
   /**
-   * Sort connections according to source node IDs.
+   * Sort connections according to source gids.
    */
-  virtual void sort_connections( BlockVector< Source >& ) = 0;
+  virtual void sort_connections( std::vector< Source >& ) = 0;
+
+  /**
+   * Reserve memory for the specified amount of connections.
+   */
+  virtual void reserve( const size_t ) = 0;
 
   /**
    * Set a flag in the connection indicating whether the following
    * connection belongs to the same source.
    */
-  virtual void set_source_has_more_targets( const size_t lcid, const bool has_more_targets ) = 0;
+  virtual void set_has_source_subsequent_targets( const index lcid,
+    const bool has_subsequent_targets ) = 0;
 
   /**
    * Return lcid of the first connection after start_lcid (inclusive)
-   * where the node_id of the target matches target_node_id. If there are no matches,
+   * where the gid of the target matches target_gid. If there are no matches,
    * the function returns invalid_index.
    */
-  virtual size_t find_first_target( const size_t tid, const size_t start_lcid, const size_t target_node_id ) const = 0;
+  virtual index find_first_target( const thread tid,
+    const index start_lcid,
+    const index target_gid ) const = 0;
 
   /**
-   * Return lcid of first connection matching source and target node id and that
-   * is not disabled.
-   *
-   * Intended for use with unsorted (uncompressed) connections.
+   * Return lcid of first connection where the gid of the target
+   * matches target_gid; consider only the connections with lcids
+   * given in matching_lcids. If there is no match, the function returns
+   * invalid_index.
    */
-  virtual size_t find_enabled_connection( const size_t tid,
-    const size_t syn_id,
-    const size_t source_node_id,
-    const size_t target_node_id,
-    const SourceTable& source_table ) const = 0;
+  virtual index find_matching_target( const thread tid,
+    const std::vector< index >& matching_lcids,
+    const index target_gid ) const = 0;
 
   /**
    * Disable the transfer of events through the connection at position
    * lcid.
    */
-  virtual void disable_connection( const size_t lcid ) = 0;
+  virtual void disable_connection( const index lcid ) = 0;
 
   /**
    * Remove disabled connections from the connector.
    */
-  virtual void remove_disabled_connections( const size_t first_disabled_index ) = 0;
+  virtual void remove_disabled_connections(
+    const index first_disabled_index ) = 0;
 };
 
 /**
@@ -223,7 +235,7 @@ template < typename ConnectionT >
 class Connector : public ConnectorBase
 {
 private:
-  BlockVector< ConnectionT > C_;
+  std::vector< ConnectionT > C_;
   const synindex syn_id_;
 
 public:
@@ -232,120 +244,104 @@ public:
   {
   }
 
-  ~Connector() override
+  ~Connector()
   {
     C_.clear();
   }
 
   synindex
-  get_syn_id() const override
+  get_syn_id() const
   {
     return syn_id_;
   }
 
   size_t
-  size() const override
+  size() const
   {
     return C_.size();
   }
 
   void
-  get_synapse_status( const size_t tid, const size_t lcid, DictionaryDatum& dict ) const override
+  get_synapse_status( const thread tid,
+    const index lcid,
+    DictionaryDatum& dict ) const
   {
-    assert( lcid < C_.size() );
+    assert( lcid >= 0 and lcid < C_.size() );
 
     C_[ lcid ].get_status( dict );
 
-    // get target node ID here, where tid is available
+    // get target gid here, where tid is available
     // necessary for hpc synapses using TargetIdentifierIndex
-    def< long >( dict, names::target, C_[ lcid ].get_target( tid )->get_node_id() );
+    def< long >( dict, names::target, C_[ lcid ].get_target( tid )->get_gid() );
   }
 
   void
-  set_synapse_status( const size_t lcid, const DictionaryDatum& dict, ConnectorModel& cm ) override
+  set_synapse_status( const index lcid,
+    const DictionaryDatum& dict,
+    ConnectorModel& cm )
   {
     assert( lcid < C_.size() );
 
-    C_[ lcid ].set_status( dict, static_cast< GenericConnectorModel< ConnectionT >& >( cm ) );
+    C_[ lcid ].set_status(
+      dict, static_cast< GenericConnectorModel< ConnectionT >& >( cm ) );
   }
 
-  void
+
+  Connector< ConnectionT >&
   push_back( const ConnectionT& c )
   {
+    vector_util::grow( C_ );
+
     C_.push_back( c );
+    return *this;
   }
 
   void
-  push_back( ConnectionT&& c )
-  {
-    C_.push_back( std::move( c ) );
-  }
-
-  void
-  get_connection( const size_t source_node_id,
-    const size_t target_node_id,
-    const size_t tid,
-    const size_t lcid,
+  get_connection( const index source_gid,
+    const index target_gid,
+    const thread tid,
+    const index lcid,
     const long synapse_label,
-    std::deque< ConnectionID >& conns ) const override
+    std::deque< ConnectionID >& conns ) const
   {
     if ( not C_[ lcid ].is_disabled() )
     {
-      if ( synapse_label == UNLABELED_CONNECTION or C_[ lcid ].get_label() == synapse_label )
+      if ( synapse_label == UNLABELED_CONNECTION
+        or C_[ lcid ].get_label() == synapse_label )
       {
-        const size_t current_target_node_id = C_[ lcid ].get_target( tid )->get_node_id();
-        if ( current_target_node_id == target_node_id or target_node_id == 0 )
+        const index current_target_gid =
+          C_[ lcid ].get_target( tid )->get_gid();
+        if ( current_target_gid == target_gid or target_gid == 0 )
         {
-          conns.push_back(
-            ConnectionDatum( ConnectionID( source_node_id, current_target_node_id, tid, syn_id_, lcid ) ) );
+          conns.push_back( ConnectionDatum( ConnectionID(
+            source_gid, current_target_gid, tid, syn_id_, lcid ) ) );
         }
       }
     }
   }
 
   void
-  get_connection_with_specified_targets( const size_t source_node_id,
-    const std::vector< size_t >& target_neuron_node_ids,
-    const size_t tid,
-    const size_t lcid,
+  get_all_connections( const index source_gid,
+    const index target_gid,
+    const thread tid,
     const long synapse_label,
-    std::deque< ConnectionID >& conns ) const override
+    std::deque< ConnectionID >& conns ) const
   {
-    if ( not C_[ lcid ].is_disabled() )
+    for ( size_t lcid = 0; lcid < C_.size(); ++lcid )
     {
-      if ( synapse_label == UNLABELED_CONNECTION or C_[ lcid ].get_label() == synapse_label )
-      {
-        const size_t current_target_node_id = C_[ lcid ].get_target( tid )->get_node_id();
-        if ( std::find( target_neuron_node_ids.begin(), target_neuron_node_ids.end(), current_target_node_id )
-          != target_neuron_node_ids.end() )
-        {
-          conns.push_back(
-            ConnectionDatum( ConnectionID( source_node_id, current_target_node_id, tid, syn_id_, lcid ) ) );
-        }
-      }
+      get_connection( source_gid, target_gid, tid, lcid, synapse_label, conns );
     }
   }
 
   void
-  get_all_connections( const size_t source_node_id,
-    const size_t target_node_id,
-    const size_t tid,
-    const long synapse_label,
-    std::deque< ConnectionID >& conns ) const override
+  get_source_lcids( const thread tid,
+    const index target_gid,
+    std::vector< index >& source_lcids ) const
   {
-    for ( size_t lcid = 0; lcid < C_.size(); ++lcid )
+    for ( index lcid = 0; lcid < C_.size(); ++lcid )
     {
-      get_connection( source_node_id, target_node_id, tid, lcid, synapse_label, conns );
-    }
-  }
-
-  void
-  get_source_lcids( const size_t tid, const size_t target_node_id, std::vector< size_t >& source_lcids ) const override
-  {
-    for ( size_t lcid = 0; lcid < C_.size(); ++lcid )
-    {
-      const size_t current_target_node_id = C_[ lcid ].get_target( tid )->get_node_id();
-      if ( current_target_node_id == target_node_id and not C_[ lcid ].is_disabled() )
+      const index current_target_gid = C_[ lcid ].get_target( tid )->get_gid();
+      if ( current_target_gid == target_gid and not C_[ lcid ].is_disabled() )
       {
         source_lcids.push_back( lcid );
       }
@@ -353,21 +349,22 @@ public:
   }
 
   void
-  get_target_node_ids( const size_t tid,
-    const size_t start_lcid,
+  get_target_gids( const thread tid,
+    const index start_lcid,
     const std::string& post_synaptic_element,
-    std::vector< size_t >& target_node_ids ) const override
+    std::vector< index >& target_gids ) const
   {
-    size_t lcid = start_lcid;
+    index lcid = start_lcid;
     while ( true )
     {
-      if ( C_[ lcid ].get_target( tid )->get_synaptic_elements( post_synaptic_element ) != 0.0
+      if ( C_[ lcid ].get_target( tid )->get_synaptic_elements(
+             post_synaptic_element ) != 0.0
         and not C_[ lcid ].is_disabled() )
       {
-        target_node_ids.push_back( C_[ lcid ].get_target( tid )->get_node_id() );
+        target_gids.push_back( C_[ lcid ].get_target( tid )->get_gid() );
       }
 
-      if ( not C_[ lcid ].source_has_more_targets() )
+      if ( not C_[ lcid ].has_source_subsequent_targets() )
       {
         break;
       }
@@ -376,49 +373,53 @@ public:
     }
   }
 
-  size_t
-  get_target_node_id( const size_t tid, const unsigned int lcid ) const override
+  index
+  get_target_gid( const thread tid, const unsigned int lcid ) const
   {
-    return C_[ lcid ].get_target( tid )->get_node_id();
+    return C_[ lcid ].get_target( tid )->get_gid();
   }
 
   void
-  send_to_all( const size_t tid, const std::vector< ConnectorModel* >& cm, Event& e ) override
+  send_to_all( const thread tid,
+    const std::vector< ConnectorModel* >& cm,
+    Event& e )
   {
-    auto const& cp = static_cast< GenericConnectorModel< ConnectionT >* >( cm[ syn_id_ ] )->get_common_properties();
-
     for ( size_t lcid = 0; lcid < C_.size(); ++lcid )
     {
       e.set_port( lcid );
       assert( not C_[ lcid ].is_disabled() );
-      C_[ lcid ].send( e, tid, cp );
+      C_[ lcid ].send( e,
+        tid,
+        static_cast< GenericConnectorModel< ConnectionT >* >( cm[ syn_id_ ] )
+          ->get_common_properties() );
     }
   }
 
-  size_t
-  send( const size_t tid, const size_t lcid, const std::vector< ConnectorModel* >& cm, Event& e ) override
+  index
+  send( const thread tid,
+    const index lcid,
+    const std::vector< ConnectorModel* >& cm,
+    Event& e )
   {
     typename ConnectionT::CommonPropertiesType const& cp =
-      static_cast< GenericConnectorModel< ConnectionT >* >( cm[ syn_id_ ] )->get_common_properties();
+      static_cast< GenericConnectorModel< ConnectionT >* >( cm[ syn_id_ ] )
+        ->get_common_properties();
 
-    size_t lcid_offset = 0;
-
+    index lcid_offset = 0;
     while ( true )
     {
-      assert( lcid + lcid_offset < C_.size() );
       ConnectionT& conn = C_[ lcid + lcid_offset ];
+      const bool is_disabled = conn.is_disabled();
+      const bool has_source_subsequent_targets =
+        conn.has_source_subsequent_targets();
 
       e.set_port( lcid + lcid_offset );
-      if ( not conn.is_disabled() )
+      if ( not is_disabled )
       {
-        // Some synapses, e.g., bernoulli_synapse, may not send an event after all
-        const bool event_sent = conn.send( e, tid, cp );
-        if ( event_sent )
-        {
-          send_weight_event( tid, lcid + lcid_offset, e, cp );
-        }
+        conn.send( e, tid, cp );
+        send_weight_event( tid, lcid + lcid_offset, e, cp );
       }
-      if ( not conn.source_has_more_targets() )
+      if ( not has_source_subsequent_targets )
       {
         break;
       }
@@ -429,59 +430,89 @@ public:
   }
 
   // Implemented in connector_base_impl.h
-  void
-  send_weight_event( const size_t tid, const unsigned int lcid, Event& e, const CommonSynapseProperties& cp ) override;
+  void send_weight_event( const thread tid,
+    const unsigned int lcid,
+    Event& e,
+    const CommonSynapseProperties& cp );
 
   void
-  trigger_update_weight( const long vt_node_id,
-    const size_t tid,
-    const std::vector< spikecounter >& dopa_spikes,
+  trigger_update_weight( const long vt_gid,
+    const thread tid,
+    const double trace,
     const double t_trig,
-    const std::vector< ConnectorModel* >& cm ) override
+    const std::vector< ConnectorModel* >& cm )
   {
     for ( size_t i = 0; i < C_.size(); ++i )
     {
       if ( static_cast< GenericConnectorModel< ConnectionT >* >( cm[ syn_id_ ] )
              ->get_common_properties()
-             .get_vt_node_id()
-        == vt_node_id )
+             .get_vt_gid() == vt_gid )
+      {
+        C_[ i ].trigger_update_weight( tid,
+          trace,
+          t_trig,
+          static_cast< GenericConnectorModel< ConnectionT >* >( cm[ syn_id_ ] )
+            ->get_common_properties() );
+      }
+    }
+  }
+  
+  void
+  trigger_update_weight( const long vt_gid,
+    const thread tid,
+    const std::vector< spikecounter >& dopa_spikes,
+    const double t_trig,
+    const std::vector< ConnectorModel* >& cm )
+  {
+    for ( size_t i = 0; i < C_.size(); ++i )
+    {
+      if ( static_cast< GenericConnectorModel< ConnectionT >* >( cm[ syn_id_ ] )
+             ->get_common_properties()
+             .get_vt_gid() == vt_gid )
       {
         C_[ i ].trigger_update_weight( tid,
           dopa_spikes,
           t_trig,
-          static_cast< GenericConnectorModel< ConnectionT >* >( cm[ syn_id_ ] )->get_common_properties() );
+          static_cast< GenericConnectorModel< ConnectionT >* >( cm[ syn_id_ ] )
+            ->get_common_properties() );
       }
     }
   }
 
   void
-  sort_connections( BlockVector< Source >& sources ) override
+  reserve( const size_t count )
+  {
+    C_.reserve( count );
+  }
+
+  void
+  sort_connections( std::vector< Source >& sources )
   {
     nest::sort( sources, C_ );
   }
 
   void
-  set_source_has_more_targets( const size_t lcid, const bool has_more_targets ) override
+  set_has_source_subsequent_targets( const index lcid,
+    const bool has_subsequent_targets )
   {
-    C_[ lcid ].set_source_has_more_targets( has_more_targets );
+    C_[ lcid ].set_has_source_subsequent_targets( has_subsequent_targets );
   }
 
-  size_t
-  find_first_target( const size_t tid, const size_t start_lcid, const size_t target_node_id ) const override
+  index
+  find_first_target( const thread tid,
+    const index start_lcid,
+    const index target_gid ) const
   {
-    // TODO: Once #3544 is merged, activate this assertion. It is currently
-    //       commented out to avoid circular inclusions.
-    // assert( kernel().connection_manager.use_compressed_spikes() );
-
-    size_t lcid = start_lcid;
+    index lcid = start_lcid;
     while ( true )
     {
-      if ( C_[ lcid ].get_target( tid )->get_node_id() == target_node_id and not C_[ lcid ].is_disabled() )
+      if ( C_[ lcid ].get_target( tid )->get_gid() == target_gid
+        and not C_[ lcid ].is_disabled() )
       {
         return lcid;
       }
 
-      if ( not C_[ lcid ].source_has_more_targets() )
+      if ( not C_[ lcid ].has_source_subsequent_targets() )
       {
         return invalid_index;
       }
@@ -490,19 +521,17 @@ public:
     }
   }
 
-  size_t
-  find_enabled_connection( const size_t tid,
-    const size_t syn_id,
-    const size_t source_node_id,
-    const size_t target_node_id,
-    const SourceTable& source_table ) const override
+  index
+  find_matching_target( const thread tid,
+    const std::vector< index >& matching_lcids,
+    const index target_gid ) const
   {
-    for ( size_t lcid = 0; lcid < C_.size(); ++lcid )
+    for ( size_t i = 0; i < matching_lcids.size(); ++i )
     {
-      if ( source_table.get_node_id( tid, syn_id, lcid ) == source_node_id
-        and C_[ lcid ].get_target( tid )->get_node_id() == target_node_id and not C_[ lcid ].is_disabled() )
+      if ( C_[ matching_lcids[ i ] ].get_target( tid )->get_gid()
+        == target_gid )
       {
-        return lcid;
+        return matching_lcids[ i ];
       }
     }
 
@@ -510,14 +539,14 @@ public:
   }
 
   void
-  disable_connection( const size_t lcid ) override
+  disable_connection( const index lcid )
   {
     assert( not C_[ lcid ].is_disabled() );
     C_[ lcid ].disable();
   }
 
   void
-  remove_disabled_connections( const size_t first_disabled_index ) override
+  remove_disabled_connections( const index first_disabled_index )
   {
     assert( C_[ first_disabled_index ].is_disabled() );
     C_.erase( C_.begin() + first_disabled_index, C_.end() );

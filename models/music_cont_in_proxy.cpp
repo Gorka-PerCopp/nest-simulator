@@ -33,19 +33,10 @@
 
 // Includes from libnestutil:
 #include "compose.hpp"
-#include "dict_util.h"
 #include "logging.h"
 
 // Includes from nestkernel:
 #include "kernel_manager.h"
-#include "nest_impl.h"
-
-void
-nest::register_music_cont_in_proxy( const std::string& name )
-{
-  register_node_model< music_cont_in_proxy >( name );
-}
-
 
 /* ----------------------------------------------------------------
  * Default constructors defining default parameters and state
@@ -53,6 +44,11 @@ nest::register_music_cont_in_proxy( const std::string& name )
 
 nest::music_cont_in_proxy::Parameters_::Parameters_()
   : port_name_( "cont_in" )
+{
+}
+
+nest::music_cont_in_proxy::Parameters_::Parameters_( const Parameters_& op )
+  : port_name_( op.port_name_ )
 {
 }
 
@@ -73,12 +69,12 @@ nest::music_cont_in_proxy::Parameters_::get( DictionaryDatum& d ) const
 }
 
 void
-nest::music_cont_in_proxy::Parameters_::set( const DictionaryDatum& d, State_& s, Node* node )
+nest::music_cont_in_proxy::Parameters_::set( const DictionaryDatum& d,
+  State_& s )
 {
-  if ( d->known( names::port_name ) and s.published_ )
-  {
-    throw MUSICPortAlreadyPublished( node->get_name(), port_name_ );
-  }
+  // TODO: This is not possible, as P_ does not know about get_name()
+  //  if(d->known(names::port_name) && s.published_)
+  //    throw MUSICPortAlreadyPublished(get_name(), P_.port_name_);
 
   if ( not s.published_ )
   {
@@ -94,7 +90,8 @@ nest::music_cont_in_proxy::State_::get( DictionaryDatum& d ) const
 }
 
 void
-nest::music_cont_in_proxy::State_::set( const DictionaryDatum&, const Parameters_& )
+nest::music_cont_in_proxy::State_::set( const DictionaryDatum&,
+  const Parameters_& )
 {
 }
 
@@ -123,12 +120,20 @@ nest::music_cont_in_proxy::music_cont_in_proxy( const music_cont_in_proxy& n )
  * ---------------------------------------------------------------- */
 
 void
+nest::music_cont_in_proxy::init_state_( const Node& proto )
+{
+  const music_cont_in_proxy& pr = downcast< music_cont_in_proxy >( proto );
+
+  S_ = pr.S_;
+}
+
+void
 nest::music_cont_in_proxy::init_buffers_()
 {
 }
 
 void
-nest::music_cont_in_proxy::pre_run_hook()
+nest::music_cont_in_proxy::calibrate()
 {
   // only publish the port once
   if ( not S_.published_ )
@@ -154,13 +159,19 @@ nest::music_cont_in_proxy::pre_run_hook()
     S_.port_width_ = V_.MP_->width();
 
     B_.data_ = std::vector< double >( S_.port_width_ );
-    MUSIC::ArrayData data_map( static_cast< void* >( &( B_.data_[ 0 ] ) ), MPI::DOUBLE, 0, S_.port_width_ );
+    MUSIC::ArrayData data_map( static_cast< void* >( &( B_.data_[ 0 ] ) ),
+      MPI::DOUBLE,
+      0,
+      S_.port_width_ );
 
     V_.MP_->map( &data_map );
     S_.published_ = true;
 
-    std::string msg = String::compose( "Mapping MUSIC input port '%1' with width=%2.", P_.port_name_, S_.port_width_ );
-    LOG( M_INFO, "music_cont_in_proxy::pre_run_hook()", msg.c_str() );
+    std::string msg =
+      String::compose( "Mapping MUSIC input port '%1' with width=%2.",
+        P_.port_name_,
+        S_.port_width_ );
+    LOG( M_INFO, "music_cont_in_proxy::calibrate()", msg.c_str() );
   }
 }
 
@@ -170,14 +181,15 @@ nest::music_cont_in_proxy::get_status( DictionaryDatum& d ) const
   P_.get( d );
   S_.get( d );
 
-  ( *d )[ names::data ] = DoubleVectorDatum( new std::vector< double >( B_.data_ ) );
+  ( *d )[ names::data ] =
+    DoubleVectorDatum( new std::vector< double >( B_.data_ ) );
 }
 
 void
 nest::music_cont_in_proxy::set_status( const DictionaryDatum& d )
 {
-  Parameters_ ptmp = P_;   // temporary copy in case of errors
-  ptmp.set( d, S_, this ); // throws if BadProperty
+  Parameters_ ptmp = P_; // temporary copy in case of errors
+  ptmp.set( d, S_ );     // throws if BadProperty
 
   State_ stmp = S_;
   stmp.set( d, P_ ); // throws if BadProperty

@@ -28,26 +28,21 @@
 #include <limits>
 
 // Includes from libnestutil:
-#include "dict_util.h"
 #include "numerics.h"
 
 // Includes from nestkernel:
 #include "exceptions.h"
 #include "kernel_manager.h"
-#include "nest_impl.h"
 #include "universal_data_logger_impl.h"
 
 // Includes from sli:
+#include "dict.h"
 #include "dictutils.h"
+#include "doubledatum.h"
+#include "integerdatum.h"
 
 namespace nest
 {
-void
-register_iaf_psc_delta( const std::string& name )
-{
-  register_node_model< iaf_psc_delta >( name );
-}
-
 
 /* ----------------------------------------------------------------
  * Recordables map
@@ -61,7 +56,7 @@ template <>
 void
 RecordablesMap< iaf_psc_delta >::create()
 {
-  // use standard names wherever you can for consistency!
+  // use standard names whereever you can for consistency!
   insert_( names::V_m, &iaf_psc_delta::get_V_m_ );
 }
 
@@ -109,15 +104,15 @@ nest::iaf_psc_delta::Parameters_::get( DictionaryDatum& d ) const
 }
 
 double
-nest::iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* node )
+nest::iaf_psc_delta::Parameters_::set( const DictionaryDatum& d )
 {
   // if E_L_ is changed, we need to adjust all variables defined relative to
   // E_L_
   const double ELold = E_L_;
-  updateValueParam< double >( d, names::E_L, E_L_, node );
+  updateValue< double >( d, names::E_L, E_L_ );
   const double delta_EL = E_L_ - ELold;
 
-  if ( updateValueParam< double >( d, names::V_reset, V_reset_, node ) )
+  if ( updateValue< double >( d, names::V_reset, V_reset_ ) )
   {
     V_reset_ -= E_L_;
   }
@@ -126,7 +121,7 @@ nest::iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* node )
     V_reset_ -= delta_EL;
   }
 
-  if ( updateValueParam< double >( d, names::V_th, V_th_, node ) )
+  if ( updateValue< double >( d, names::V_th, V_th_ ) )
   {
     V_th_ -= E_L_;
   }
@@ -135,7 +130,7 @@ nest::iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* node )
     V_th_ -= delta_EL;
   }
 
-  if ( updateValueParam< double >( d, names::V_min, V_min_, node ) )
+  if ( updateValue< double >( d, names::V_min, V_min_ ) )
   {
     V_min_ -= E_L_;
   }
@@ -144,17 +139,17 @@ nest::iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* node )
     V_min_ -= delta_EL;
   }
 
-  updateValueParam< double >( d, names::I_e, I_e_, node );
-  updateValueParam< double >( d, names::C_m, c_m_, node );
-  updateValueParam< double >( d, names::tau_m, tau_m_, node );
-  updateValueParam< double >( d, names::t_ref, t_ref_, node );
+  updateValue< double >( d, names::I_e, I_e_ );
+  updateValue< double >( d, names::C_m, c_m_ );
+  updateValue< double >( d, names::tau_m, tau_m_ );
+  updateValue< double >( d, names::t_ref, t_ref_ );
   if ( V_reset_ >= V_th_ )
   {
     throw BadProperty( "Reset potential must be smaller than threshold." );
   }
   if ( c_m_ <= 0 )
   {
-    throw BadProperty( "Capacitance must be > 0." );
+    throw BadProperty( "Capacitance must be >0." );
   }
   if ( t_ref_ < 0 )
   {
@@ -165,21 +160,24 @@ nest::iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* node )
     throw BadProperty( "Membrane time constant must be > 0." );
   }
 
-  updateValueParam< bool >( d, names::refractory_input, with_refr_input_, node );
+  updateValue< bool >( d, names::refractory_input, with_refr_input_ );
 
   return delta_EL;
 }
 
 void
-nest::iaf_psc_delta::State_::get( DictionaryDatum& d, const Parameters_& p ) const
+nest::iaf_psc_delta::State_::get( DictionaryDatum& d,
+  const Parameters_& p ) const
 {
   def< double >( d, names::V_m, y3_ + p.E_L_ ); // Membrane potential
 }
 
 void
-nest::iaf_psc_delta::State_::set( const DictionaryDatum& d, const Parameters_& p, double delta_EL, Node* node )
+nest::iaf_psc_delta::State_::set( const DictionaryDatum& d,
+  const Parameters_& p,
+  double delta_EL )
 {
-  if ( updateValueParam< double >( d, names::V_m, y3_, node ) )
+  if ( updateValue< double >( d, names::V_m, y3_ ) )
   {
     y3_ -= p.E_L_;
   }
@@ -204,7 +202,7 @@ nest::iaf_psc_delta::Buffers_::Buffers_( const Buffers_&, iaf_psc_delta& n )
  * ---------------------------------------------------------------- */
 
 nest::iaf_psc_delta::iaf_psc_delta()
-  : ArchivingNode()
+  : Archiving_Node()
   , P_()
   , S_()
   , B_( *this )
@@ -213,7 +211,7 @@ nest::iaf_psc_delta::iaf_psc_delta()
 }
 
 nest::iaf_psc_delta::iaf_psc_delta( const iaf_psc_delta& n )
-  : ArchivingNode( n )
+  : Archiving_Node( n )
   , P_( n.P_ )
   , S_( n.S_ )
   , B_( n.B_, *this )
@@ -225,16 +223,23 @@ nest::iaf_psc_delta::iaf_psc_delta( const iaf_psc_delta& n )
  * ---------------------------------------------------------------- */
 
 void
+nest::iaf_psc_delta::init_state_( const Node& proto )
+{
+  const iaf_psc_delta& pr = downcast< iaf_psc_delta >( proto );
+  S_ = pr.S_;
+}
+
+void
 nest::iaf_psc_delta::init_buffers_()
 {
   B_.spikes_.clear();   // includes resize
   B_.currents_.clear(); // includes resize
   B_.logger_.reset();   // includes resize
-  ArchivingNode::clear_history();
+  Archiving_Node::clear_history();
 }
 
 void
-nest::iaf_psc_delta::pre_run_hook()
+nest::iaf_psc_delta::calibrate()
 {
   B_.logger_.init();
 
@@ -272,19 +277,26 @@ nest::iaf_psc_delta::pre_run_hook()
  */
 
 void
-nest::iaf_psc_delta::update( Time const& origin, const long from, const long to )
+nest::iaf_psc_delta::update( Time const& origin,
+  const long from,
+  const long to )
 {
+  assert(
+    to >= 0 && ( delay ) from < kernel().connection_manager.get_min_delay() );
+  assert( from < to );
+
   const double h = Time::get_resolution().get_ms();
   for ( long lag = from; lag < to; ++lag )
   {
     if ( S_.r_ == 0 )
     {
       // neuron not refractory
-      S_.y3_ = V_.P30_ * ( S_.y0_ + P_.I_e_ ) + V_.P33_ * S_.y3_ + B_.spikes_.get_value( lag );
+      S_.y3_ = V_.P30_ * ( S_.y0_ + P_.I_e_ ) + V_.P33_ * S_.y3_
+        + B_.spikes_.get_value( lag );
 
       // if we have accumulated spikes from refractory period,
       // add and reset accumulator
-      if ( P_.with_refr_input_ and S_.refr_spikes_buffer_ != 0.0 )
+      if ( P_.with_refr_input_ && S_.refr_spikes_buffer_ != 0.0 )
       {
         S_.y3_ += S_.refr_spikes_buffer_;
         S_.refr_spikes_buffer_ = 0.0;
@@ -299,13 +311,13 @@ nest::iaf_psc_delta::update( Time const& origin, const long from, const long to 
       // for decay until end of refractory period
       if ( P_.with_refr_input_ )
       {
-        S_.refr_spikes_buffer_ += B_.spikes_.get_value( lag ) * std::exp( -S_.r_ * h / P_.tau_m_ );
+        S_.refr_spikes_buffer_ +=
+          B_.spikes_.get_value( lag ) * std::exp( -S_.r_ * h / P_.tau_m_ );
       }
       else
       {
-        // clear buffer entry, ignore spike
         B_.spikes_.get_value( lag );
-      }
+      } // clear buffer entry, ignore spike
 
       --S_.r_;
     }
@@ -334,26 +346,29 @@ nest::iaf_psc_delta::update( Time const& origin, const long from, const long to 
 void
 nest::iaf_psc_delta::handle( SpikeEvent& e )
 {
-  assert( e.get_delay_steps() > 0 );
+  assert( e.get_delay() > 0 );
 
   // EX: We must compute the arrival time of the incoming spike
   //     explicity, since it depends on delay and offset within
   //     the update cycle.  The way it is done here works, but
   //     is clumsy and should be improved.
   B_.spikes_.add_value(
-    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ), e.get_weight() * e.get_multiplicity() );
+    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ),
+    e.get_weight() * e.get_multiplicity() );
 }
 
 void
 nest::iaf_psc_delta::handle( CurrentEvent& e )
 {
-  assert( e.get_delay_steps() > 0 );
+  assert( e.get_delay() > 0 );
 
   const double c = e.get_current();
   const double w = e.get_weight();
 
   // add weighted current; HEP 2002-10-04
-  B_.currents_.add_value( e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ), w * c );
+  B_.currents_.add_value(
+    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ),
+    w * c );
 }
 
 void

@@ -63,7 +63,7 @@ protected:
 
 private:
   virtual Datum*
-  clone() const
+  clone( void ) const
   {
     return new AggregateDatum< C, slt >( *this );
   }
@@ -95,8 +95,9 @@ public:
     // a direct dynamic_cast<const GenericDatum<D> * > does not seem
     // to work.
 
-    const AggregateDatum< C, slt >* ddc = dynamic_cast< AggregateDatum< C, slt >* >( const_cast< Datum* >( dat ) );
-    if ( not ddc )
+    const AggregateDatum< C, slt >* ddc =
+      dynamic_cast< AggregateDatum< C, slt >* >( const_cast< Datum* >( dat ) );
+    if ( ddc == NULL )
     {
       return false;
     }
@@ -104,8 +105,7 @@ public:
     return static_cast< C >( *ddc ) == static_cast< C >( *this );
   }
 
-  static void*
-  operator new( size_t size )
+  static void* operator new( size_t size )
   {
     if ( size != memory.size_of() )
     {
@@ -114,10 +114,9 @@ public:
     return memory.alloc();
   }
 
-  static void
-  operator delete( void* p, size_t size )
+  static void operator delete( void* p, size_t size )
   {
-    if ( not p )
+    if ( p == NULL )
     {
       return;
     }
@@ -162,7 +161,9 @@ AggregateDatum< C, slt >::pprint( std::ostream& out ) const
 
 template < class C, SLIType* slt >
 void
-AggregateDatum< C, slt >::list( std::ostream& out, std::string prefix, int length ) const
+AggregateDatum< C, slt >::list( std::ostream& out,
+  std::string prefix,
+  int length ) const
 {
   if ( length == 0 )
   {

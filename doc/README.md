@@ -1,13 +1,6 @@
 # `doc` folder
 
-This folder contains the static parts of the documentation for NEST,
-as well as the infrastructure and tools for extracting documentation
-dynamically from the source code and building a unified HTML site
-using Sphinx.
+The documentation of NEST. This includes design documents and user documentation. The online help is generated during the [installation][install] of NEST and installed to the installation directory. We use [doxygen][doxygen] comments extensively throughout NEST. `make doc` will extract them from the source code and install the developer documentation into the doc directory.
 
-To read the NEST documentation, please visit
-https://nest-simulator.readthedocs.org.
-
-For more information about the different workflows for documentation,
-please see
-https://nest-simulator.readthedocs.io/en/latest/developer_space/workflows/documentation_workflow/
+[install]: http://nestwwwdev.inm.kfa-juelich.de/nest-simulator/installation-2/ "Installation documentation"
+[doxygen]: http://doxygen.org/ "doxygen Homepage"

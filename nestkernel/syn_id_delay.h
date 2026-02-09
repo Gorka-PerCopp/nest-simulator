@@ -32,21 +32,26 @@ namespace nest
 
 struct SynIdDelay
 {
-  unsigned int delay : NUM_BITS_DELAY;
-  unsigned int syn_id : NUM_BITS_SYN_ID;
-  bool more_targets : 1;
+  unsigned int delay : 22;
+  unsigned int syn_id : 8;
+  bool subsequent_targets : 1;
   bool disabled : 1;
 
   explicit SynIdDelay( double d )
     : syn_id( invalid_synindex )
-    , more_targets( false )
+    , subsequent_targets( false )
     , disabled( false )
   {
     set_delay_ms( d );
   }
 
-  SynIdDelay( const SynIdDelay& s ) = default;
-  SynIdDelay& operator=( const SynIdDelay& s ) = default;
+  SynIdDelay( const SynIdDelay& s )
+    : delay( s.delay )
+    , syn_id( s.syn_id )
+    , subsequent_targets( s.subsequent_targets )
+    , disabled( s.disabled )
+  {
+  }
 
   /**
    * Return the delay of the connection in ms
@@ -67,15 +72,15 @@ struct SynIdDelay
   }
 
   void
-  set_source_has_more_targets( const bool more_targets )
+  set_has_source_subsequent_targets( const bool subsequent_targets )
   {
-    this->more_targets = more_targets;
+    this->subsequent_targets = subsequent_targets;
   }
 
   bool
-  source_has_more_targets() const
+  has_source_subsequent_targets() const
   {
-    return more_targets;
+    return this->subsequent_targets;
   }
 
   /**
@@ -100,9 +105,6 @@ struct SynIdDelay
     return disabled;
   }
 };
-
-//! check legal size
-using success_syn_id_delay_data_size = StaticAssert< sizeof( SynIdDelay ) == 4 >::success;
 }
 
 #endif

@@ -29,7 +29,8 @@
 #include "exceptions.h"
 #include "kernel_manager.h"
 #include "mpi_manager_impl.h"
-#include "parameter.h"
+#include "nodelist.h"
+#include "subnet.h"
 
 // Includes from sli:
 #include "sliexceptions.h"
@@ -63,33 +64,66 @@ reset_kernel()
 }
 
 void
+reset_network()
+{
+  kernel().simulation_manager.reset_network();
+  LOG( M_INFO,
+    "ResetNetworkFunction",
+    "The network has been reset. Random generators and time have NOT been "
+    "reset." );
+}
+
+void
+enable_dryrun_mode( const index n_procs )
+{
+  kernel().mpi_manager.set_num_processes( n_procs );
+}
+
+void
 register_logger_client( const deliver_logging_event_ptr client_callback )
 {
   kernel().logging_manager.register_logging_client( client_callback );
 }
 
 void
-print_nodes_to_stream( std::ostream& ostr )
+print_network( index gid, index depth, std::ostream& )
 {
-  kernel().node_manager.print( ostr );
+  kernel().node_manager.print( gid, depth - 1 );
 }
 
-RngPtr
-get_rank_synced_rng()
+librandom::RngPtr
+get_vp_rng_of_gid( index target )
 {
-  return kernel().random_manager.get_rank_synced_rng();
+  Node* target_node = kernel().node_manager.get_node( target );
+
+  if ( not kernel().node_manager.is_local_node( target_node ) )
+  {
+    throw LocalNodeExpected( target );
+  }
+
+  // Only nodes with proxies have a well-defined VP and thus thread.
+  // Asking for the VP of, e.g., a subnet or spike_detector is meaningless.
+  if ( not target_node->has_proxies() )
+  {
+    throw NodeWithProxiesExpected( target );
+  }
+
+  return kernel().rng_manager.get_rng( target_node->get_thread() );
 }
 
-RngPtr
-get_vp_synced_rng( size_t tid )
+librandom::RngPtr
+get_vp_rng( thread tid )
 {
-  return kernel().random_manager.get_vp_synced_rng( tid );
+  assert( tid >= 0 );
+  assert(
+    tid < static_cast< thread >( kernel().vp_manager.get_num_threads() ) );
+  return kernel().rng_manager.get_rng( tid );
 }
 
-RngPtr
-get_vp_specific_rng( size_t tid )
+librandom::RngPtr
+get_global_rng()
 {
-  return kernel().random_manager.get_vp_specific_rng( tid );
+  return kernel().rng_manager.get_grng();
 }
 
 void
@@ -97,7 +131,6 @@ set_kernel_status( const DictionaryDatum& dict )
 {
   dict->clear_access_flags();
   kernel().set_status( dict );
-  ALL_ENTRIES_ACCESSED( *dict, "SetKernelStatus", "Unread dictionary entries: " );
 }
 
 DictionaryDatum
@@ -105,37 +138,43 @@ get_kernel_status()
 {
   assert( kernel().is_initialized() );
 
-  DictionaryDatum d( new Dictionary );
+  Node* root = kernel().node_manager.get_root();
+  assert( root != 0 );
+
+  DictionaryDatum d = root->get_status_base();
   kernel().get_status( d );
 
   return d;
 }
 
 void
-set_node_status( const size_t node_id, const DictionaryDatum& dict )
+set_node_status( const index node_id, const DictionaryDatum& dict )
 {
   kernel().node_manager.set_status( node_id, dict );
 }
 
 DictionaryDatum
-get_node_status( const size_t node_id )
+get_node_status( const index node_id )
 {
   return kernel().node_manager.get_status( node_id );
 }
 
 void
-set_connection_status( const ConnectionDatum& conn, const DictionaryDatum& dict )
+set_connection_status( const ConnectionDatum& conn,
+  const DictionaryDatum& dict )
 {
   DictionaryDatum conn_dict = conn.get_dict();
-  const size_t source_node_id = getValue< long >( conn_dict, nest::names::source );
-  const size_t target_node_id = getValue< long >( conn_dict, nest::names::target );
-  const size_t tid = getValue< long >( conn_dict, nest::names::target_thread );
-  const synindex syn_id = getValue< long >( conn_dict, nest::names::synapse_modelid );
-  const size_t p = getValue< long >( conn_dict, nest::names::port );
+  const index source_gid = getValue< long >( conn_dict, nest::names::source );
+  const index target_gid = getValue< long >( conn_dict, nest::names::target );
+  const thread tid = getValue< long >( conn_dict, nest::names::target_thread );
+  const synindex syn_id =
+    getValue< long >( conn_dict, nest::names::synapse_modelid );
+  const port p = getValue< long >( conn_dict, nest::names::port );
 
   dict->clear_access_flags();
 
-  kernel().connection_manager.set_synapse_status( source_node_id, target_node_id, tid, syn_id, p, dict );
+  kernel().connection_manager.set_synapse_status(
+    source_gid, target_gid, tid, syn_id, p, dict );
 
   ALL_ENTRIES_ACCESSED2( *dict,
     "SetStatus",
@@ -147,63 +186,42 @@ set_connection_status( const ConnectionDatum& conn, const DictionaryDatum& dict 
 DictionaryDatum
 get_connection_status( const ConnectionDatum& conn )
 {
-  return kernel().connection_manager.get_synapse_status( conn.get_source_node_id(),
-    conn.get_target_node_id(),
+  return kernel().connection_manager.get_synapse_status( conn.get_source_gid(),
+    conn.get_target_gid(),
     conn.get_target_thread(),
     conn.get_synapse_model_id(),
     conn.get_port() );
 }
 
-NodeCollectionPTR
-create( const Name& model_name, const size_t n_nodes )
+index
+create( const Name& model_name, const index n_nodes )
 {
   if ( n_nodes == 0 )
   {
     throw RangeCheck();
   }
 
-  const size_t model_id = kernel().model_manager.get_node_model_id( model_name );
+  const Token model =
+    kernel().model_manager.get_modeldict()->lookup( model_name );
+  if ( model.empty() )
+  {
+    throw UnknownModelName( model_name );
+  }
+
+  // create
+  const index model_id = static_cast< index >( model );
+
   return kernel().node_manager.add_node( model_id, n_nodes );
 }
 
-NodeCollectionPTR
-get_nodes( const DictionaryDatum& params, const bool local_only )
-{
-  return kernel().node_manager.get_nodes( params, local_only );
-}
-
 void
-connect( NodeCollectionPTR sources,
-  NodeCollectionPTR targets,
+connect( const GIDCollection& sources,
+  const GIDCollection& targets,
   const DictionaryDatum& connectivity,
-  const std::vector< DictionaryDatum >& synapse_params )
+  const DictionaryDatum& synapse_params )
 {
-  kernel().connection_manager.connect( sources, targets, connectivity, synapse_params );
-}
-
-void
-connect_tripartite( NodeCollectionPTR sources,
-  NodeCollectionPTR targets,
-  NodeCollectionPTR third,
-  const DictionaryDatum& connectivity,
-  const DictionaryDatum& third_connectivity,
-  const std::map< Name, std::vector< DictionaryDatum > >& synapse_specs )
-{
-  kernel().connection_manager.connect_tripartite(
-    sources, targets, third, connectivity, third_connectivity, synapse_specs );
-}
-
-void
-connect_arrays( long* sources,
-  long* targets,
-  double* weights,
-  double* delays,
-  std::vector< std::string >& p_keys,
-  double* p_values,
-  size_t n,
-  std::string syn_model )
-{
-  kernel().connection_manager.connect_arrays( sources, targets, weights, delays, p_keys, p_values, n, syn_model );
+  kernel().connection_manager.connect(
+    sources, targets, connectivity, synapse_params );
 }
 
 ArrayDatum
@@ -213,32 +231,33 @@ get_connections( const DictionaryDatum& dict )
 
   ArrayDatum array = kernel().connection_manager.get_connections( dict );
 
-  ALL_ENTRIES_ACCESSED( *dict, "GetConnections", "Unread dictionary entries: " );
+  ALL_ENTRIES_ACCESSED(
+    *dict, "GetConnections", "Unread dictionary entries: " );
 
   return array;
 }
 
 void
-disconnect( const ArrayDatum& conns )
+simulate( const double& time )
 {
-  // probably not strictly necessary here, but does nothing if all is up to date
-  kernel().node_manager.update_thread_local_node_data();
+  const Time t_sim = Time::ms( time );
 
-  for ( size_t conn_index = 0; conn_index < conns.size(); ++conn_index )
+  if ( time < 0 )
   {
-    const auto conn_datum = getValue< ConnectionDatum >( conns.get( conn_index ) );
-    const auto target_node = kernel().node_manager.get_node_or_proxy( conn_datum.get_target_node_id() );
-    kernel().sp_manager.disconnect(
-      conn_datum.get_source_node_id(), target_node, conn_datum.get_target_thread(), conn_datum.get_synapse_model_id() );
+    throw BadParameter( "The simulation time cannot be negative." );
   }
-}
+  if ( not t_sim.is_finite() )
+  {
+    throw BadParameter( "The simulation time must be finite." );
+  }
+  if ( not t_sim.is_grid_time() )
+  {
+    throw BadParameter(
+      "The simulation time must be a multiple "
+      "of the simulation resolution." );
+  }
 
-void
-simulate( const double& t )
-{
-  prepare();
-  run( t );
-  cleanup();
+  kernel().simulation_manager.simulate( t_sim );
 }
 
 void
@@ -267,152 +286,209 @@ run( const double& time )
 void
 prepare()
 {
-  kernel().prepare();
+  kernel().simulation_manager.prepare();
 }
 
 void
 cleanup()
 {
-  kernel().cleanup();
+  kernel().simulation_manager.cleanup();
 }
 
 void
-copy_model( const Name& oldmodname, const Name& newmodname, const DictionaryDatum& dict )
+copy_model( const Name& oldmodname,
+  const Name& newmodname,
+  const DictionaryDatum& dict )
 {
   kernel().model_manager.copy_model( oldmodname, newmodname, dict );
 }
 
 void
-set_model_defaults( const std::string component, const DictionaryDatum& dict )
+set_model_defaults( const Name& modelname, const DictionaryDatum& dict )
 {
-  if ( kernel().model_manager.set_model_defaults( component, dict ) )
-  {
-    return;
-  }
-
-  if ( kernel().io_manager.is_valid_recording_backend( component ) )
-  {
-    kernel().io_manager.set_recording_backend_status( component, dict );
-    return;
-  }
-
-  throw UnknownComponent( component );
+  kernel().model_manager.set_model_defaults( modelname, dict );
 }
 
 DictionaryDatum
-get_model_defaults( const std::string component )
+get_model_defaults( const Name& modelname )
 {
-  try
+  const Token nodemodel =
+    kernel().model_manager.get_modeldict()->lookup( modelname );
+  const Token synmodel =
+    kernel().model_manager.get_synapsedict()->lookup( modelname );
+
+  DictionaryDatum dict;
+
+  if ( not nodemodel.empty() )
   {
-    const size_t model_id = kernel().model_manager.get_node_model_id( component );
-    return kernel().model_manager.get_node_model( model_id )->get_status();
+    const long model_id = static_cast< long >( nodemodel );
+    Model* m = kernel().model_manager.get_model( model_id );
+    dict = m->get_status();
   }
-  catch ( UnknownModelName& )
+  else if ( not synmodel.empty() )
   {
-    // ignore errors; throw at the end of the function if that's reached
+    const long synapse_id = static_cast< long >( synmodel );
+    dict = kernel().model_manager.get_connector_defaults( synapse_id );
+  }
+  else
+  {
+    throw UnknownModelName( modelname.toString() );
   }
 
-  try
-  {
-    const size_t synapse_model_id = kernel().model_manager.get_synapse_model_id( component );
-    return kernel().model_manager.get_connector_defaults( synapse_model_id );
-  }
-  catch ( UnknownSynapseType& )
-  {
-    // ignore errors; throw at the end of the function if that's reached
-  }
-
-  if ( kernel().io_manager.is_valid_recording_backend( component ) )
-  {
-    return kernel().io_manager.get_recording_backend_status( component );
-  }
-
-  throw UnknownComponent( component );
-  return DictionaryDatum(); // supress missing return value warning; never reached
+  return dict;
 }
 
-ParameterDatum
-create_parameter( const DictionaryDatum& param_dict )
+void
+change_subnet( const index node_gid )
 {
-  param_dict->clear_access_flags();
-
-  ParameterDatum datum( NestModule::create_parameter( param_dict ) );
-
-  ALL_ENTRIES_ACCESSED( *param_dict, "nest::CreateParameter", "Unread dictionary entries: " );
-
-  return datum;
-}
-
-double
-get_value( const ParameterDatum& param )
-{
-  RngPtr rng = get_rank_synced_rng();
-  return param->value( rng, nullptr );
-}
-
-bool
-is_spatial( const ParameterDatum& param )
-{
-  return param->is_spatial();
-}
-
-std::vector< double >
-apply( const ParameterDatum& param, const NodeCollectionDatum& nc )
-{
-  std::vector< double > result;
-  result.reserve( nc->size() );
-  RngPtr rng = get_rank_synced_rng();
-  for ( auto it = nc->begin(); it < nc->end(); ++it )
+  if ( kernel().node_manager.get_node( node_gid )->is_subnet() )
   {
-    auto node = kernel().node_manager.get_node_or_proxy( ( *it ).node_id );
-    result.push_back( param->value( rng, node ) );
+    kernel().node_manager.go_to( node_gid );
   }
+  else
+  {
+    throw SubnetExpected();
+  }
+}
+
+index
+current_subnet()
+{
+  assert( kernel().node_manager.get_cwn() != 0 );
+  return kernel().node_manager.get_cwn()->get_gid();
+}
+
+ArrayDatum
+get_nodes( const index node_id,
+  const DictionaryDatum& params,
+  const bool include_remotes,
+  const bool return_gids_only )
+{
+  Subnet* subnet =
+    dynamic_cast< Subnet* >( kernel().node_manager.get_node( node_id ) );
+  if ( subnet == NULL )
+  {
+    throw SubnetExpected();
+  }
+
+  LocalNodeList localnodes( *subnet );
+  std::vector< MPIManager::NodeAddressingData > globalnodes;
+  if ( params->empty() )
+  {
+    kernel().mpi_manager.communicate(
+      localnodes, globalnodes, include_remotes );
+  }
+  else
+  {
+    kernel().mpi_manager.communicate(
+      localnodes, globalnodes, params, include_remotes );
+  }
+
+  ArrayDatum result;
+  result.reserve( globalnodes.size() );
+  for ( std::vector< MPIManager::NodeAddressingData >::iterator n =
+          globalnodes.begin();
+        n != globalnodes.end();
+        ++n )
+  {
+    if ( return_gids_only )
+    {
+      result.push_back( new IntegerDatum( n->get_gid() ) );
+    }
+    else
+    {
+      DictionaryDatum* node_info = new DictionaryDatum( new Dictionary );
+      ( **node_info )[ names::global_id ] = n->get_gid();
+      ( **node_info )[ names::vp ] = n->get_vp();
+      ( **node_info )[ names::parent ] = n->get_parent_gid();
+      result.push_back( node_info );
+    }
+  }
+
   return result;
 }
 
-std::vector< double >
-apply( const ParameterDatum& param, const DictionaryDatum& positions )
+ArrayDatum
+get_leaves( const index node_id,
+  const DictionaryDatum& params,
+  const bool include_remotes )
 {
-  auto source_tkn = positions->lookup( names::source );
-  auto source_nc = getValue< NodeCollectionPTR >( source_tkn );
+  Subnet* subnet =
+    dynamic_cast< Subnet* >( kernel().node_manager.get_node( node_id ) );
+  if ( subnet == NULL )
+  {
+    throw SubnetExpected();
+  }
 
-  auto targets_tkn = positions->lookup( names::targets );
-  TokenArray target_tkns = getValue< TokenArray >( targets_tkn );
-  return param->apply( source_nc, target_tkns );
+  LocalLeafList localnodes( *subnet );
+  ArrayDatum result;
+
+  std::vector< MPIManager::NodeAddressingData > globalnodes;
+  if ( params->empty() )
+  {
+    kernel().mpi_manager.communicate(
+      localnodes, globalnodes, include_remotes );
+  }
+  else
+  {
+    kernel().mpi_manager.communicate(
+      localnodes, globalnodes, params, include_remotes );
+  }
+  result.reserve( globalnodes.size() );
+
+  for ( std::vector< MPIManager::NodeAddressingData >::iterator n =
+          globalnodes.begin();
+        n != globalnodes.end();
+        ++n )
+  {
+    result.push_back( new IntegerDatum( n->get_gid() ) );
+  }
+
+  return result;
 }
 
-Datum*
-node_collection_array_index( const Datum* datum, const long* array, unsigned long n )
+ArrayDatum
+get_children( const index node_id,
+  const DictionaryDatum& params,
+  const bool include_remotes )
 {
-  const NodeCollectionDatum node_collection = *dynamic_cast< const NodeCollectionDatum* >( datum );
-  assert( node_collection->size() >= n );
-  std::vector< size_t > node_ids;
-  node_ids.reserve( n );
-
-  for ( auto node_ptr = array; node_ptr != array + n; ++node_ptr )
+  Subnet* subnet =
+    dynamic_cast< Subnet* >( kernel().node_manager.get_node( node_id ) );
+  if ( subnet == NULL )
   {
-    node_ids.push_back( node_collection->operator[]( *node_ptr ) );
+    throw SubnetExpected();
   }
-  return new NodeCollectionDatum( NodeCollection::create( node_ids ) );
+
+  LocalChildList localnodes( *subnet );
+  ArrayDatum result;
+
+  std::vector< MPIManager::NodeAddressingData > globalnodes;
+  if ( params->empty() )
+  {
+    kernel().mpi_manager.communicate(
+      localnodes, globalnodes, include_remotes );
+  }
+  else
+  {
+    kernel().mpi_manager.communicate(
+      localnodes, globalnodes, params, include_remotes );
+  }
+  result.reserve( globalnodes.size() );
+  for ( std::vector< MPIManager::NodeAddressingData >::iterator n =
+          globalnodes.begin();
+        n != globalnodes.end();
+        ++n )
+  {
+    result.push_back( new IntegerDatum( n->get_gid() ) );
+  }
+
+  return result;
 }
 
-Datum*
-node_collection_array_index( const Datum* datum, const bool* array, unsigned long n )
+void
+restore_nodes( const ArrayDatum& node_list )
 {
-  const NodeCollectionDatum node_collection = *dynamic_cast< const NodeCollectionDatum* >( datum );
-  assert( node_collection->size() == n );
-  std::vector< size_t > node_ids;
-  node_ids.reserve( n );
-
-  auto nc_it = node_collection->begin();
-  for ( auto node_ptr = array; node_ptr != array + n; ++node_ptr, ++nc_it )
-  {
-    if ( *node_ptr )
-    {
-      node_ids.push_back( ( *nc_it ).node_id );
-    }
-  }
-  return new NodeCollectionDatum( NodeCollection::create( node_ids ) );
+  kernel().node_manager.restore_nodes( node_list );
 }
 
 } // namespace nest

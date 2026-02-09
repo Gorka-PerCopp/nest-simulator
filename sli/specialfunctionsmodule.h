@@ -53,14 +53,14 @@ class SpecialFunctionsModule : public SLIModule
   // Part 1: Methods pertaining to the module ----------------------
 
 public:
-  SpecialFunctionsModule() {};
+  SpecialFunctionsModule( void ){};
   // ~SpecialFunctionsModule(void);
 
   // The Module is registered by a call to this Function:
-  void init( SLIInterpreter* ) override;
+  void init( SLIInterpreter* );
 
   // This function will return the name of our module:
-  const std::string name() const override;
+  const std::string name( void ) const;
 
 
   // Part 2: Classes for the implemented functions -----------------
@@ -78,7 +78,7 @@ public:
     GammaIncFunction()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class LambertW0Function : public SLIFunction
   {
@@ -86,7 +86,7 @@ public:
     LambertW0Function()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class LambertWm1Function : public SLIFunction
   {
@@ -94,7 +94,7 @@ public:
     LambertWm1Function()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class ErfFunction : public SLIFunction
@@ -103,7 +103,7 @@ public:
     ErfFunction()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class ErfcFunction : public SLIFunction
@@ -112,17 +112,17 @@ public:
     ErfcFunction()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class GaussDiskConvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
 
     // need constructor and destructor to set up integration workspace
-    GaussDiskConvFunction();
-    ~GaussDiskConvFunction() override;
+    GaussDiskConvFunction( void );
+    ~GaussDiskConvFunction( void );
 
   private:
     // quadrature parameters, see GSL Reference
@@ -162,7 +162,7 @@ private:
 
 // Part 4: Documentation for all functions -------------------------
 
-/** @BeginDocumentation
+/* BeginDocumentation
 
 Name: Gammainc - incomplete gamma function
 
@@ -186,7 +186,7 @@ Remarks: This is the incomplete Gamma function P(a,x) defined as no. 6.5.1
 References: http://sources.redhat.com/gsl/ref
 */
 
-/** @BeginDocumentation
+/* BeginDocumentation
 
 Name: Erf - error function
 
@@ -210,7 +210,7 @@ References: http://sources.redhat.com/gsl/ref
 SeeAlso: Erfc
 */
 
-/** @BeginDocumentation
+/* BeginDocumentation
 
 Name: Erfc - complementary error function
 
@@ -234,7 +234,7 @@ References: http://sources.redhat.com/gsl/ref
 SeeAlso: Erf
 */
 
-/** @BeginDocumentation
+/* BeginDocumentation
 
 Name:GaussDiskConv - Convolution of a Gaussian with an excentric disk
 

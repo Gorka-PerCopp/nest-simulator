@@ -56,47 +56,53 @@ initialize_property_intvector( DictionaryDatum& d, Name propname )
 }
 
 void
-provide_property( DictionaryDatum& d, Name propname, const std::vector< double >& prop )
+provide_property( DictionaryDatum& d,
+  Name propname,
+  const std::vector< double >& prop )
 {
   Token t = d->lookup2( propname );
 
   DoubleVectorDatum* arrd = dynamic_cast< DoubleVectorDatum* >( t.datum() );
-  assert( arrd );
+  assert( arrd != 0 );
 
-  if ( ( *arrd )->empty() and not prop.empty() ) // not data from before, add
+  if ( ( *arrd )->empty() && not prop.empty() ) // not data from before, add
   {
     ( *arrd )->insert( ( *arrd )->end(), prop.begin(), prop.end() );
   }
 
-  assert( prop.empty() or **arrd == prop ); // not testing for **arrd.empty()
+  assert( prop.empty() || **arrd == prop ); // not testing for **arrd.empty()
                                             // since that implies prop.empty()
 }
 
 
 void
-provide_property( DictionaryDatum& d, Name propname, const std::vector< long >& prop )
+provide_property( DictionaryDatum& d,
+  Name propname,
+  const std::vector< long >& prop )
 {
   Token t = d->lookup2( propname );
 
   IntVectorDatum* arrd = dynamic_cast< IntVectorDatum* >( t.datum() );
-  assert( arrd );
+  assert( arrd != 0 );
 
-  if ( ( *arrd )->empty() and not prop.empty() ) // not data from before, add
+  if ( ( *arrd )->empty() && not prop.empty() ) // not data from before, add
   {
     ( *arrd )->insert( ( *arrd )->end(), prop.begin(), prop.end() );
   }
 
-  assert( prop.empty() or **arrd == prop ); // not testing for **arrd.empty()
+  assert( prop.empty() || **arrd == prop ); // not testing for **arrd.empty()
                                             // since that implies prop.empty()
 }
 
 void
-accumulate_property( DictionaryDatum& d, Name propname, const std::vector< double >& prop )
+accumulate_property( DictionaryDatum& d,
+  Name propname,
+  const std::vector< double >& prop )
 {
   Token t = d->lookup2( propname );
 
   DoubleVectorDatum* arrd = dynamic_cast< DoubleVectorDatum* >( t.datum() );
-  assert( arrd );
+  assert( arrd != 0 );
 
   if ( ( *arrd )->empty() ) // first data, copy
   {
@@ -107,6 +113,10 @@ accumulate_property( DictionaryDatum& d, Name propname, const std::vector< doubl
     assert( ( *arrd )->size() == prop.size() );
 
     // add contents of prop to **arrd elementwise
-    std::transform( ( *arrd )->begin(), ( *arrd )->end(), prop.begin(), ( *arrd )->begin(), std::plus< double >() );
+    std::transform( ( *arrd )->begin(),
+      ( *arrd )->end(),
+      prop.begin(),
+      ( *arrd )->begin(),
+      std::plus< double >() );
   }
 }

@@ -33,27 +33,32 @@ namespace nest
 {
 
 /**
- * Stores the node ID of a presynaptic neuron
+ * Stores the global id of a presynaptic neuron
  * and the number of local targets, along with a flag, whether this
  * entry has been processed yet. Used in SourceTable.
  */
 class Source
 {
 private:
-  uint64_t node_id_ : NUM_BITS_NODE_ID; //!< node ID of source
-  bool processed_ : 1;                  //!< whether this target has already been moved
-                                        //!< to the MPI buffer
-  bool primary_ : 1;                    //!< source of primary connection
-  bool disabled_ : 1;                   //!< connection has been disabled
+  unsigned long gid_ : 62; //!< gid of source
+  bool processed_ : 1;     //!< whether this target has already been moved
+                           //!to the MPI buffer
+  bool primary_ : 1;
+  static const size_t disabled_marker_ = 4611686018427387904 - 1; // 2 ** 62 - 1
 
 public:
   Source();
-  explicit Source( const uint64_t node_id, const bool primary );
+  explicit Source( const index gid, const bool primary );
 
   /**
-   * Returns this Source's node ID.
+   * Sets gid_ to the specified value.
    */
-  uint64_t get_node_id() const;
+  void set_gid( const index gid );
+
+  /**
+   * Returns this Source's GID.
+   */
+  index get_gid() const;
 
   void set_processed( const bool processed );
   bool is_processed() const;
@@ -84,26 +89,31 @@ public:
 };
 
 inline Source::Source()
-  : node_id_( 0 )
+  : gid_( 0 )
   , processed_( false )
   , primary_( true )
-  , disabled_( false )
 {
 }
 
-inline Source::Source( const uint64_t node_id, const bool is_primary )
-  : node_id_( node_id )
+inline Source::Source( const index gid, const bool is_primary )
+  : gid_( gid )
   , processed_( false )
   , primary_( is_primary )
-  , disabled_( false )
 {
-  assert( node_id <= MAX_NODE_ID );
+  assert( gid < disabled_marker_ );
 }
 
-inline uint64_t
-Source::get_node_id() const
+inline void
+Source::set_gid( const index gid )
 {
-  return node_id_;
+  assert( gid < disabled_marker_ );
+  gid_ = gid;
+}
+
+inline index
+Source::get_gid() const
+{
+  return gid_;
 }
 
 inline void
@@ -133,33 +143,30 @@ Source::is_primary() const
 inline void
 Source::disable()
 {
-  disabled_ = true;
+  gid_ = disabled_marker_;
 }
 
 inline bool
 Source::is_disabled() const
 {
-  return disabled_;
+  return gid_ == disabled_marker_;
 }
 
-inline bool
-operator<( const Source& lhs, const Source& rhs )
+inline bool operator<( const Source& lhs, const Source& rhs )
 {
-  return ( lhs.node_id_ < rhs.node_id_ );
+  return ( lhs.gid_ < rhs.gid_ );
 }
 
-inline bool
-operator>( const Source& lhs, const Source& rhs )
+inline bool operator>( const Source& lhs, const Source& rhs )
 {
   return operator<( rhs, lhs );
 }
 
-inline bool
-operator==( const Source& lhs, const Source& rhs )
+inline bool operator==( const Source& lhs, const Source& rhs )
 {
-  return ( lhs.node_id_ == rhs.node_id_ );
+  return ( lhs.gid_ == rhs.gid_ );
 }
 
 } // namespace nest
 
-#endif /* #ifndef SOURCE_H */
+#endif // SOURCE_H

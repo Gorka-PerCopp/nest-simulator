@@ -21,6 +21,7 @@
  */
 
 /**
+ * \file spikecounter.h
  * Part of definition of volume_transmitter to record and manage
  * spike times and multiplicity of neurons releasing a
  * neuromodulator, which is needed for neuromodulated synaptic plasticity

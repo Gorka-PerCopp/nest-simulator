@@ -53,12 +53,12 @@ private:
   static size_t allocations;
 
 public:
-  TokenArrayObj()
-    : p( nullptr )
-    , begin_of_free_storage( nullptr )
-    , end_of_free_storage( nullptr )
+  TokenArrayObj( void )
+    : p( NULL )
+    , begin_of_free_storage( NULL )
+    , end_of_free_storage( NULL )
     , alloc_block_size( ARRAY_ALLOC_SIZE )
-    , refs_( 1 ) {};
+    , refs_( 1 ){};
 
   TokenArrayObj( size_t, const Token& = Token(), size_t = 0 );
   TokenArrayObj( const TokenArrayObj& );
@@ -78,25 +78,23 @@ public:
   }
 
   size_t
-  size() const
+  size( void ) const
   {
-    return static_cast< size_t >( begin_of_free_storage - p );
+    return ( size_t )( begin_of_free_storage - p );
   }
 
   size_t
-  capacity() const
+  capacity( void ) const
   {
-    return static_cast< size_t >( end_of_free_storage - p );
+    return ( size_t )( end_of_free_storage - p );
   }
 
-  Token&
-  operator[]( size_t i )
+  Token& operator[]( size_t i )
   {
     return p[ i ];
   }
 
-  const Token&
-  operator[]( size_t i ) const
+  const Token& operator[]( size_t i ) const
   {
     return p[ i ];
   }
@@ -119,11 +117,11 @@ public:
 
   // Memory allocation
 
-  bool shrink();
+  bool shrink( void );
   bool reserve( size_t );
 
   unsigned int
-  references()
+  references( void )
   {
     return refs_;
   }
@@ -222,7 +220,7 @@ public:
   }
 
   void
-  pop_back()
+  pop_back( void )
   {
     ( --begin_of_free_storage )->clear();
   }
@@ -257,7 +255,7 @@ public:
 
   void append_move( TokenArrayObj& );
 
-  void clear();
+  void clear( void );
 
 
   const TokenArrayObj& operator=( const TokenArrayObj& );
@@ -265,7 +263,7 @@ public:
   bool operator==( const TokenArrayObj& ) const;
 
   bool
-  empty() const
+  empty( void ) const
   {
     return size() == 0;
   }
@@ -273,12 +271,12 @@ public:
   void info( std::ostream& ) const;
 
   static size_t
-  getallocations()
+  getallocations( void )
   {
     return allocations;
   }
 
-  bool valid() const; // check integrity
+  bool valid( void ) const; // check integrity
 };
 
 std::ostream& operator<<( std::ostream&, const TokenArrayObj& );

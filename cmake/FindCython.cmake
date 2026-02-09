@@ -22,12 +22,11 @@
 # limitations under the License.
 #=============================================================================
 
-# Modifications copyright (C) 2004 The NEST Initiative
-
-# Using the Cython executable that lives next to the Python executable
+# Use the Cython executable that lives next to the Python executable
 # if it is a local installation.
-if ( Python_FOUND )
-  get_filename_component( _python_path ${Python_EXECUTABLE} PATH )
+find_package( PythonInterp )
+if ( PYTHONINTERP_FOUND )
+  get_filename_component( _python_path ${PYTHON_EXECUTABLE} PATH )
   find_program( CYTHON_EXECUTABLE
       NAMES cython cython.bat cython3
       HINTS ${_python_path}
@@ -43,20 +42,13 @@ if ( NOT CYTHON_EXECUTABLE STREQUAL "CYTHON_EXECUTABLE-NOTFOUND" )
       COMMAND ${CYTHON_EXECUTABLE} --version
       RESULT_VARIABLE RESULT
       OUTPUT_VARIABLE CYTHON_VAR_OUTPUT
-      ERROR_VARIABLE CYTHON_ERR_OUTPUT
+      ERROR_VARIABLE CYTHON_VAR_OUTPUT
       OUTPUT_STRIP_TRAILING_WHITESPACE
   )
   if ( RESULT EQUAL 0 )
-    if ( "${CYTHON_VAR_OUTPUT}" STREQUAL "" )
-      # In cython v0.29.3 the version string is written to stderr and not to stdout, as one would expect.
-      set( CYTHON_VAR_OUTPUT "${CYTHON_ERR_OUTPUT}" )
-    endif()
     string( REGEX REPLACE ".* ([0-9]+\\.[0-9]+(\\.[0-9]+)?).*" "\\1"
                           CYTHON_VERSION "${CYTHON_VAR_OUTPUT}" )
-  else ()
-    printError( "Cython error: ${CYTHON_ERR_OUTPUT}\nat ${CYTHON_EXECUTABLE}")
   endif ()
-
 endif ()
 
 include( FindPackageHandleStandardArgs )

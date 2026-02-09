@@ -26,18 +26,19 @@
 #include <limits>
 
 // Includes from libnestutil:
-#include "dict_util.h"
 #include "numerics.h"
 
 // Includes from nestkernel:
 #include "event_delivery_manager_impl.h"
 #include "exceptions.h"
 #include "kernel_manager.h"
-#include "nest_impl.h"
 #include "universal_data_logger_impl.h"
 
 // Includes from sli:
+#include "dict.h"
 #include "dictutils.h"
+#include "doubledatum.h"
+#include "integerdatum.h"
 
 /* ----------------------------------------------------------------
  * Recordables map
@@ -47,19 +48,13 @@ nest::RecordablesMap< nest::izhikevich > nest::izhikevich::recordablesMap_;
 
 namespace nest
 {
-void
-register_izhikevich( const std::string& name )
-{
-  register_node_model< izhikevich >( name );
-}
-
 // Override the create() method with one call to RecordablesMap::insert_()
 // for each quantity to be recorded.
 template <>
 void
 RecordablesMap< izhikevich >::create()
 {
-  // use standard names wherever you can for consistency!
+  // use standard names whereever you can for consistency!
   insert_( names::V_m, &izhikevich::get_V_m_ );
   insert_( names::U_m, &izhikevich::get_U_m_ );
 }
@@ -82,9 +77,9 @@ nest::izhikevich::Parameters_::Parameters_()
 }
 
 nest::izhikevich::State_::State_()
-  : v_( -65.0 )       // membrane potential
-  , u_( 0.2 * -65.0 ) // membrane recovery variable (b * V_m_init)
-  , I_( 0.0 )         // input current
+  : v_( -65.0 ) // membrane potential
+  , u_( 0.0 )   // membrane recovery variable
+  , I_( 0.0 )   // input current
 {
 }
 
@@ -106,20 +101,23 @@ nest::izhikevich::Parameters_::get( DictionaryDatum& d ) const
 }
 
 void
-nest::izhikevich::Parameters_::set( const DictionaryDatum& d, Node* node )
+nest::izhikevich::Parameters_::set( const DictionaryDatum& d )
 {
-  updateValueParam< double >( d, names::V_th, V_th_, node );
-  updateValueParam< double >( d, names::V_min, V_min_, node );
-  updateValueParam< double >( d, names::I_e, I_e_, node );
-  updateValueParam< double >( d, names::a, a_, node );
-  updateValueParam< double >( d, names::b, b_, node );
-  updateValueParam< double >( d, names::c, c_, node );
-  updateValueParam< double >( d, names::d, d_, node );
-  updateValue< bool >( d, names::consistent_integration, consistent_integration_ );
+
+  updateValue< double >( d, names::V_th, V_th_ );
+  updateValue< double >( d, names::V_min, V_min_ );
+  updateValue< double >( d, names::I_e, I_e_ );
+  updateValue< double >( d, names::a, a_ );
+  updateValue< double >( d, names::b, b_ );
+  updateValue< double >( d, names::c, c_ );
+  updateValue< double >( d, names::d, d_ );
+  updateValue< bool >(
+    d, names::consistent_integration, consistent_integration_ );
   const double h = Time::get_resolution().get_ms();
-  if ( not consistent_integration_ and h != 1.0 )
+  if ( not consistent_integration_ && h != 1.0 )
   {
-    LOG( M_INFO, "Parameters_::set", "Use 1.0 ms as resolution for consistency." );
+    LOG(
+      M_INFO, "Parameters_::set", "Use 1.0 ms as resolution for consistency." );
   }
 }
 
@@ -131,10 +129,10 @@ nest::izhikevich::State_::get( DictionaryDatum& d, const Parameters_& ) const
 }
 
 void
-nest::izhikevich::State_::set( const DictionaryDatum& d, const Parameters_&, Node* node )
+nest::izhikevich::State_::set( const DictionaryDatum& d, const Parameters_& )
 {
-  updateValueParam< double >( d, names::U_m, u_, node );
-  updateValueParam< double >( d, names::V_m, v_, node );
+  updateValue< double >( d, names::U_m, u_ );
+  updateValue< double >( d, names::V_m, v_ );
 }
 
 nest::izhikevich::Buffers_::Buffers_( izhikevich& n )
@@ -152,7 +150,7 @@ nest::izhikevich::Buffers_::Buffers_( const Buffers_&, izhikevich& n )
  * ---------------------------------------------------------------- */
 
 nest::izhikevich::izhikevich()
-  : ArchivingNode()
+  : Archiving_Node()
   , P_()
   , S_()
   , B_( *this )
@@ -161,7 +159,7 @@ nest::izhikevich::izhikevich()
 }
 
 nest::izhikevich::izhikevich( const izhikevich& n )
-  : ArchivingNode( n )
+  : Archiving_Node( n )
   , P_( n.P_ )
   , S_( n.S_ )
   , B_( n.B_, *this )
@@ -173,16 +171,23 @@ nest::izhikevich::izhikevich( const izhikevich& n )
  * ---------------------------------------------------------------- */
 
 void
+nest::izhikevich::init_state_( const Node& proto )
+{
+  const izhikevich& pr = downcast< izhikevich >( proto );
+  S_ = pr.S_;
+}
+
+void
 nest::izhikevich::init_buffers_()
 {
   B_.spikes_.clear();   // includes resize
   B_.currents_.clear(); // includes resize
   B_.logger_.reset();   // includes resize
-  ArchivingNode::clear_history();
+  Archiving_Node::clear_history();
 }
 
 void
-nest::izhikevich::pre_run_hook()
+nest::izhikevich::calibrate()
 {
   B_.logger_.init();
 }
@@ -194,6 +199,10 @@ nest::izhikevich::pre_run_hook()
 void
 nest::izhikevich::update( Time const& origin, const long from, const long to )
 {
+  assert(
+    to >= 0 && ( delay ) from < kernel().connection_manager.get_min_delay() );
+  assert( from < to );
+
   const double h = Time::get_resolution().get_ms();
   double v_old, u_old;
 
@@ -205,8 +214,9 @@ nest::izhikevich::update( Time const& origin, const long from, const long to )
     {
       v_old = S_.v_;
       u_old = S_.u_;
-      S_.v_ +=
-        h * ( 0.04 * v_old * v_old + 5.0 * v_old + 140.0 - u_old + S_.I_ + P_.I_e_ ) + B_.spikes_.get_value( lag );
+      S_.v_ += h * ( 0.04 * v_old * v_old + 5.0 * v_old + 140.0 - u_old + S_.I_
+                     + P_.I_e_ )
+        + B_.spikes_.get_value( lag );
       S_.u_ += h * P_.a_ * ( P_.b_ * v_old - u_old );
     }
     // use numerics published in Izhikevich (2003) in this case (not
@@ -214,8 +224,10 @@ nest::izhikevich::update( Time const& origin, const long from, const long to )
     else
     {
       double I_syn = B_.spikes_.get_value( lag );
-      S_.v_ += h * 0.5 * ( 0.04 * S_.v_ * S_.v_ + 5.0 * S_.v_ + 140.0 - S_.u_ + S_.I_ + P_.I_e_ + I_syn );
-      S_.v_ += h * 0.5 * ( 0.04 * S_.v_ * S_.v_ + 5.0 * S_.v_ + 140.0 - S_.u_ + S_.I_ + P_.I_e_ + I_syn );
+      S_.v_ += h * 0.5 * ( 0.04 * S_.v_ * S_.v_ + 5.0 * S_.v_ + 140.0 - S_.u_
+                           + S_.I_ + P_.I_e_ + I_syn );
+      S_.v_ += h * 0.5 * ( 0.04 * S_.v_ * S_.v_ + 5.0 * S_.v_ + 140.0 - S_.u_
+                           + S_.I_ + P_.I_e_ + I_syn );
       S_.u_ += h * P_.a_ * ( P_.b_ * S_.v_ - S_.u_ );
     }
 
@@ -246,19 +258,22 @@ nest::izhikevich::update( Time const& origin, const long from, const long to )
 void
 nest::izhikevich::handle( SpikeEvent& e )
 {
-  assert( e.get_delay_steps() > 0 );
+  assert( e.get_delay() > 0 );
   B_.spikes_.add_value(
-    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ), e.get_weight() * e.get_multiplicity() );
+    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ),
+    e.get_weight() * e.get_multiplicity() );
 }
 
 void
 nest::izhikevich::handle( CurrentEvent& e )
 {
-  assert( e.get_delay_steps() > 0 );
+  assert( e.get_delay() > 0 );
 
   const double c = e.get_current();
   const double w = e.get_weight();
-  B_.currents_.add_value( e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ), w * c );
+  B_.currents_.add_value(
+    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ),
+    w * c );
 }
 
 void

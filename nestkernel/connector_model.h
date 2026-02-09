@@ -31,11 +31,9 @@
 #include "numerics.h"
 
 // Includes from nestkernel:
-#include "enum_bitfield.h"
 #include "event.h"
 #include "nest_time.h"
 #include "nest_types.h"
-#include "secondary_event.h"
 
 // Includes from sli:
 #include "dictutils.h"
@@ -47,31 +45,15 @@ class CommonSynapseProperties;
 class TimeConverter;
 class Node;
 
-enum class ConnectionModelProperties : unsigned
-{
-  NONE = 0,
-  SUPPORTS_HPC = 1 << 0,
-  SUPPORTS_LBL = 1 << 1,
-  IS_PRIMARY = 1 << 2,
-  HAS_DELAY = 1 << 3,
-  SUPPORTS_WFR = 1 << 4,
-  REQUIRES_SYMMETRIC = 1 << 5,
-  REQUIRES_CLOPATH_ARCHIVING = 1 << 6,
-  REQUIRES_URBANCZIK_ARCHIVING = 1 << 7,
-  REQUIRES_EPROP_ARCHIVING = 1 << 8
-};
-
-template <>
-struct EnableBitMaskOperators< ConnectionModelProperties >
-{
-  static const bool enable = true;
-};
-
 class ConnectorModel
 {
 
 public:
-  ConnectorModel( const std::string, const ConnectionModelProperties& properties );
+  ConnectorModel( const std::string,
+    const bool is_primary,
+    const bool has_delay,
+    const bool requires_symmetric,
+    const bool supports_wfr );
   ConnectorModel( const ConnectorModel&, const std::string );
   virtual ~ConnectorModel()
   {
@@ -101,7 +83,15 @@ public:
     const double delay = NAN,
     const double weight = NAN ) = 0;
 
-  virtual ConnectorModel* clone( std::string, synindex syn_id ) const = 0;
+  /**
+   * Reserves the specified amount of connections at the specified index in the
+   * connection vector.
+   */
+  virtual void reserve_connections( std::vector< ConnectorBase* >& hetconn,
+    const synindex syn_id,
+    const size_t count ) = 0;
+
+  virtual ConnectorModel* clone( std::string ) const = 0;
 
   virtual void calibrate( const TimeConverter& tc ) = 0;
 
@@ -112,17 +102,14 @@ public:
 
   /**
    * Checks to see if illegal parameters are given in syn_spec.
-   *
-   * Checks against setting CommonSynapseProperties upon Connect() are implemented in GenericConnectorModel.
-   * Any further checks need to be implemented by the connection model class by overriding
-   * Connection::check_synapse_params().
    */
   virtual void check_synapse_params( const DictionaryDatum& ) const = 0;
 
-  virtual std::unique_ptr< SecondaryEvent > get_secondary_event() = 0;
+  virtual SecondaryEvent* get_event() const = 0;
 
-  virtual size_t get_syn_id() const = 0;
   virtual void set_syn_id( synindex syn_id ) = 0;
+
+  virtual std::vector< SecondaryEvent* > create_event( size_t n ) const = 0;
 
   std::string
   get_name() const
@@ -131,22 +118,44 @@ public:
   }
 
   bool
-  has_property( const ConnectionModelProperties& property ) const
+  is_primary() const
   {
-    return flag_is_set( properties_, property );
+    return is_primary_;
   }
 
-  ConnectionModelProperties
-  get_properties() const
+  bool
+  has_delay() const
   {
-    return properties_;
+    return has_delay_;
+  }
+
+  bool
+  requires_symmetric() const
+  {
+    return requires_symmetric_;
+  }
+
+  bool
+  supports_wfr() const
+  {
+    return supports_wfr_;
   }
 
 protected:
-  std::string name_;                     //!< name of the ConnectorModel
-  bool default_delay_needs_check_;       //!< indicates whether the default delay must be checked
-  ConnectionModelProperties properties_; //!< connection properties
-};
+  //! name of the ConnectorModel
+  std::string name_;
+  //! indicates whether the default delay must be checked
+  bool default_delay_needs_check_;
+  //! indicates whether this ConnectorModel belongs to a primary connection
+  bool is_primary_;
+  //! indicates whether ConnectorModel has a delay
+  bool has_delay_;
+  //! indicates that ConnectorModel requires symmetric connections
+  bool requires_symmetric_;
+  //! indicates whether connection can be used during wfr update
+  bool supports_wfr_;
+
+}; // ConnectorModel
 
 
 template < typename ConnectionT >
@@ -154,20 +163,32 @@ class GenericConnectorModel : public ConnectorModel
 {
 private:
   typename ConnectionT::CommonPropertiesType cp_;
+  //! used to create secondary events that belong to secondary connections
+  typename ConnectionT::EventType* pev_;
 
   ConnectionT default_connection_;
-  size_t receptor_type_;
+  rport receptor_type_;
 
 public:
-  GenericConnectorModel( const std::string name )
-    : ConnectorModel( name, ConnectionT::properties )
+  GenericConnectorModel( const std::string name,
+    bool is_primary,
+    bool has_delay,
+    bool requires_symmetric,
+    bool supports_wfr )
+    : ConnectorModel( name,
+        is_primary,
+        has_delay,
+        requires_symmetric,
+        supports_wfr )
     , receptor_type_( 0 )
   {
   }
 
-  GenericConnectorModel( const GenericConnectorModel& cm, const std::string name )
+  GenericConnectorModel( const GenericConnectorModel& cm,
+    const std::string name )
     : ConnectorModel( cm, name )
     , cp_( cm.cp_ )
+    , pev_( cm.pev_ )
     , default_connection_( cm.default_connection_ )
     , receptor_type_( cm.receptor_type_ )
   {
@@ -179,30 +200,34 @@ public:
     const synindex syn_id,
     const DictionaryDatum& d,
     const double delay,
-    const double weight ) override;
+    const double weight );
 
-  ConnectorModel* clone( std::string, synindex ) const override;
+  ConnectorModel* clone( std::string ) const;
 
-  void calibrate( const TimeConverter& tc ) override;
+  void calibrate( const TimeConverter& tc );
 
-  void get_status( DictionaryDatum& ) const override;
-  void set_status( const DictionaryDatum& ) override;
+  void get_status( DictionaryDatum& ) const;
+  void set_status( const DictionaryDatum& );
+
+  void
+  check_synapse_params( const DictionaryDatum& syn_spec ) const
+  {
+    default_connection_.check_synapse_params( syn_spec );
+  }
 
   typename ConnectionT::CommonPropertiesType const&
-  get_common_properties() const override
+  get_common_properties() const
   {
     return cp_;
   }
 
-  size_t get_syn_id() const override;
-  void set_syn_id( synindex syn_id ) override;
+  void set_syn_id( synindex syn_id );
 
-  void check_synapse_params( const DictionaryDatum& syn_spec ) const override;
-
-  std::unique_ptr< SecondaryEvent >
-  get_secondary_event() override
+  virtual typename ConnectionT::EventType*
+  get_event() const
   {
-    return default_connection_.get_secondary_event();
+    assert( false );
+    return 0;
   }
 
   ConnectionT const&
@@ -210,6 +235,19 @@ public:
   {
     return default_connection_;
   }
+
+  virtual std::vector< SecondaryEvent* > create_event( size_t ) const
+  {
+    // Should not be called for a ConnectorModel belonging to a primary
+    // connection. Only required for secondary connection types.
+    assert( false );
+    std::vector< SecondaryEvent* > prototype_events;
+    return prototype_events;
+  }
+
+  void reserve_connections( std::vector< ConnectorBase* >& hetconn,
+    const synindex syn_id,
+    const size_t count );
 
 private:
   void used_default_delay();
@@ -219,9 +257,75 @@ private:
     std::vector< ConnectorBase* >& hetconn,
     const synindex syn_id,
     ConnectionT& c,
-    const size_t receptor_type );
+    const rport receptor_type );
 
 }; // GenericConnectorModel
+
+template < typename ConnectionT >
+class GenericSecondaryConnectorModel
+  : public GenericConnectorModel< ConnectionT >
+{
+private:
+  //! used to create secondary events that belong to secondary connections
+  typename ConnectionT::EventType* pev_;
+
+public:
+  GenericSecondaryConnectorModel( const std::string name,
+    const bool has_delay,
+    const bool requires_symmetric,
+    const bool supports_wfr )
+    : GenericConnectorModel< ConnectionT >( name,
+        /*is _primary=*/false,
+        has_delay,
+        requires_symmetric,
+        supports_wfr )
+    , pev_( 0 )
+  {
+    pev_ = new typename ConnectionT::EventType();
+  }
+
+  GenericSecondaryConnectorModel( const GenericSecondaryConnectorModel& cm,
+    const std::string name )
+    : GenericConnectorModel< ConnectionT >( cm, name )
+  {
+    pev_ = new typename ConnectionT::EventType( *cm.pev_ );
+  }
+
+
+  ConnectorModel*
+  clone( std::string name ) const
+  {
+    return new GenericSecondaryConnectorModel(
+      *this, name ); // calls copy construtor
+  }
+
+  std::vector< SecondaryEvent* >
+  create_event( size_t n ) const
+  {
+    std::vector< SecondaryEvent* > prototype_events( n, NULL );
+    for ( size_t i = 0; i < n; i++ )
+    {
+      prototype_events[ i ] = new typename ConnectionT::EventType();
+    }
+
+    return prototype_events;
+  }
+
+
+  ~GenericSecondaryConnectorModel()
+  {
+    if ( pev_ != 0 )
+    {
+      delete pev_;
+    }
+  }
+
+  typename ConnectionT::EventType*
+  get_event() const
+  {
+    return pev_;
+  }
+};
 
 } // namespace nest
 

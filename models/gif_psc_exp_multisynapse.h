@@ -25,194 +25,126 @@
 
 // Includes from nestkernel:
 #include "archiving_node.h"
+#include "ring_buffer.h"
 #include "connection.h"
 #include "event.h"
-#include "ring_buffer.h"
 #include "universal_data_logger.h"
 
 #include "nest.h"
 
+/* BeginDocumentation
+  Name: gif_psc_exp_multisynapse - Current-based generalized
+  integrate-and-fire neuron model with multiple synaptic time
+  constants according to Mensi et al. (2012) and Pozzorini et al. (2015).
+
+  Description:
+
+  gif_psc_exp_multisynapse is the generalized integrate-and-fire neuron
+  according to Mensi et al. (2012) and Pozzorini et al. (2015), with
+  exponential shaped postsynaptic currents.
+
+  This model features both an adaptation current and a dynamic threshold for
+  spike-frequency adaptation. The membrane potential (V) is described by the
+  differential equation:
+
+  C*dV(t)/dt = -g_L*(V(t)-E_L) - eta_1(t) - eta_2(t) - ... - eta_n(t) + I(t)
+
+  where each eta_i is a spike-triggered current (stc), and the neuron model can
+  have arbitrary number of them.
+  Dynamic of each eta_i is described by:
+
+  tau_eta_i*d{eta_i}/dt = -eta_i
+
+  and in case of spike emission, its value increased by a constant (which can be
+  positive or negative):
+
+  eta_i = eta_i + q_eta_i  (in case of spike emission).
+
+  Neuron produces spikes STOCHASTICALLY according to a point process with the
+  firing intensity:
+
+  lambda(t) = lambda_0 * exp[ (V(t)-V_T(t)) / Delta_V ]
+
+  where V_T(t) is a time-dependent firing threshold:
+
+  V_T(t) = V_T_star + gamma_1(t) + gamma_2(t) + ... + gamma_m(t)
+
+  where gamma_i is a kernel of spike-frequency adaptation (sfa), and the neuron
+  model can have arbitrary number of them.
+  Dynamic of each gamma_i is described by:
+
+  tau_gamma_i*d{gamma_i}/dt = -gamma_i
+
+  and in case of spike emission, its value increased by a constant (which can be
+  positive or negative):
+
+  gamma_i = gamma_i + q_gamma_i  (in case of spike emission).
+
+  Note that in the current implementation of the model (as described in [1] and
+  [2]) the values of eta_i and gamma_i are affected immediately after spike
+  emission. However, GIF toolbox (http://wiki.epfl.ch/giftoolbox) which fits
+  the model using experimental data, requires a different set of eta_i and
+  gamma_i. It applies the jump of eta_i and gamma_i after the refractory period.
+  One can easily convert between q_eta/gamma of these two approaches:
+  q_eta_giftoolbox = q_eta_NEST * (1 - exp( -tau_ref / tau_eta ))
+  The same formula applies for q_gamma.
+
+  On the postsynapic side, there can be arbitrarily many synaptic time constants
+  (gif_psc_exp has exactly two: tau_syn_ex and tau_syn_in). This can be reached
+  by specifying separate receptor ports, each for a different time constant. The
+  port number has to match the respective "receptor_type" in the connectors.
+
+  The shape of post synaptic current is exponential.
+
+  Parameters:
+  The following parameters can be set in the status dictionary.
+
+  Membrane Parameters:
+    C_m        double - Capacity of the membrane in pF
+    t_ref      double - Duration of refractory period in ms.
+    V_reset    double - Reset value after a spike in mV.
+    E_L        double - Leak reversal potential in mV.
+    g_L        double - Leak conductance in nS.
+    I_e        double - Constant external input current in pA.
+
+  Spike adaptation and firing intensity parameters:
+    q_stc      vector of double - Values added to spike-triggered currents (stc)
+                                  after each spike emission in nA.
+    tau_stc    vector of double - Time constants of stc variables in ms.
+    q_sfa      vector of double - Values added to spike-frequency adaptation
+                                  (sfa) after each spike emission in mV.
+    tau_sfa    vector of double - Time constants of sfa variables in ms.
+    Delta_V    double - Stochasticity level in mV.
+    lambda_0   double - Stochastic intensity at firing threshold V_T in 1/s.
+    V_T_star   double - Base threshold in mV
+
+  Synaptic parameters
+    tau_syn  vector of double - Time constants of the synaptic currents in ms.
+
+  References:
+
+  [1] Mensi S, Naud R, Pozzorini C, Avermann M, Petersen CC, Gerstner W (2012)
+  Parameter extraction and classification of three cortical neuron types
+  reveals two distinct adaptation mechanisms. J. Neurophysiol., 107(6),
+  1756-1775.
+
+  [2] Pozzorini C, Mensi S, Hagens O, Naud R, Koch C, Gerstner W (2015)
+  Automated High-Throughput Characterization of Single Neurons by Means of
+  Simplified Spiking Models. PLoS Comput. Biol., 11(6), e1004275.
+
+
+  Sends: SpikeEvent
+
+  Receives: SpikeEvent, CurrentEvent, DataLoggingRequest
+
+  Author: March 2016, Setareh
+  SeeAlso: pp_psc_delta, gif_psc_exp, gif_cond_exp, gif_cond_exp_multisynapse
+*/
+
 namespace nest
 {
 
-/* BeginUserDocs: neuron, integrate-and-fire, current-based, adaptation, stochastic
-
-Short description
-+++++++++++++++++
-
-Current-based generalized integrate-and-fire neuron (GIF) model with multiple synaptic time constants (from the Gerstner
-lab)
-
-Description
-+++++++++++
-
-``gif_psc_exp_multisynapse`` is the generalized integrate-and-fire neuron
-according to Mensi et al. (2012) [1]_ and Pozzorini et al. (2015) [2]_, with
-exponential shaped postsynaptic currents.
-
-This model features both an adaptation current and a dynamic threshold for
-spike-frequency adaptation. The membrane potential (V) is described by the
-differential equation:
-
-.. math::
-
- C \cdot dV(t)/dt = -g_L \cdot (V(t)-E_L) - \eta_1(t) - \eta_2(t) - \ldots
-    - \eta_n(t) + I(t)
-
-where each :math:`\eta_i` is a spike-triggered current (stc), and the neuron
-model can have arbitrary number of them.
-Dynamic of each :math:`\eta_i` is described by:
-
-.. math::
-
- \tau_\eta{_i} \cdot d{\eta_i}/dt = -\eta_i
-
-and in case of spike emission, its value increased by a constant (which can be
-positive or negative):
-
-.. math::
-
- \eta_i = \eta_i + q_{\eta_i} \text{ (in case of spike emission).}
-
-Neuron produces spikes stochastically according to a point process with the
-firing intensity:
-
-.. math::
-
- \lambda(t) = \lambda_0 \cdot \exp (V(t)-V_T(t)) / \Delta_V
-
-where :math:`V_T(t)` is a time-dependent firing threshold:
-
-.. math::
-
- V_T(t) = V_{T_{star}} + \gamma_1(t) + \gamma_2(t) + \ldots + \gamma_m(t)
-
-where :math:`\gamma_i` is a kernel of spike-frequency adaptation (sfa), and the
-neuron model can have arbitrary number of them.
-Dynamic of each :math:`\gamma_i` is described by:
-
-.. math::
-
-   \tau_{\gamma_i} \cdot d\gamma_i/dt = -\gamma_i
-
-and in case of spike emission, its value increased by a constant (which can be
-positive or negative):
-
-.. math::
-
-   \gamma_i = \gamma_i + q_{\gamma_i}  \text{ (in case of spike emission).}
-
-
-Note:
-
-In the current implementation of the model, the values of
-:math:`\eta_i` and :math:`\gamma_i` are affected immediately after spike
-emission. However, `GIF toolbox <http://wiki.epfl.ch/giftoolbox>`_, which
-fits the model using experimental data, requires a different set of
-:math:`\eta_i` and :math:`\gamma_i`. It applies the jump of
-:math:`\eta_i` and :math:`\gamma_i` after the refractory period. One can
-easily convert between :math:`q_\eta/\gamma` of these two approaches:
-
-.. math::
-
-  q{_\eta}_{giftoolbox} = q_{\eta_{NEST}} \cdot (1 - \exp( -\tau_{ref} /
-   \tau_\eta ))
-
-The same formula applies for :math:`q_{\gamma}`.
-
-On the postsynaptic side, there can be arbitrarily many synaptic time constants
-(``gif_psc_exp`` has exactly two: ``tau_syn_ex`` and ``tau_syn_in``). This can be reached
-by specifying separate receptor ports, each for a different time constant. The
-port number has to match the respective ``receptor_type`` in the connectors.
-
-The shape of postsynaptic current is exponential.
-
-.. note::
-
-   If ``tau_m`` is very close to a synaptic time constant, the model
-   will numerically behave as if ``tau_m`` is equal to the synaptic
-   time constant, to avoid numerical instabilities.
-
-   For implementation details see the
-   `IAF Integration Singularity notebook <../model_details/IAF_Integration_Singularity.ipynb>`_.
-
-Parameters
-++++++++++
-
-The following parameters can be set in the status dictionary.
-
-========   ======  =======================================================
-**Membrane Parameters**
---------------------------------------------------------------------------
- Delta_V    mV            Noise level of escape rate
- tau_m      ms            Membrane time constant
- C_m        pF            Capacitance of the membrane
- t_ref      ms            Duration of refractory period
- V_reset    mV            Membrane potential is reset to this value after
-                          a spike
- E_L        mV            Resting potential
- g_L        nS            Leak conductance
- I_e        pA            Constant input current
-========   ======  =======================================================
-
-=========  ================ ===================================================
-**Spike adaptation and firing intensity parameters**
--------------------------------------------------------------------------------
-q_stc      list of nA       Values added to spike-triggered currents (stc)
-                            after each spike emission
-tau_stc    list of ms       Time constants of stc variables
-q_sfa      list of mV       Values added to spike-frequency adaptation
-                            (sfa) after each spike emission
-tau_sfa    list of ms       Time constants of sfa variables
-Delta_V    mV               Stochasticity level
-lambda_0   1/s              Stochastic intensity at firing threshold V_T
-V_T_star   mV               Base threshold
-=========  ================ ===================================================
-
-=======  ================  ==================================================
-**Synaptic parameters**
------------------------------------------------------------------------------
-tau_syn  list of ms        Time constants of the synaptic currents
-=======  ================  ==================================================
-
-References
-++++++++++
-
-.. [1] Mensi S, Naud R, Pozzorini C, Avermann M, Petersen CC, Gerstner W (2012)
-       Parameter extraction and classification of three cortical neuron types
-       reveals two distinct adaptation mechanisms. Journal of
-       Neurophysiology, 107(6):1756-1775.
-       DOI: https://doi.org/10.1152/jn.00408.2011
-.. [2] Pozzorini C, Mensi S, Hagens O, Naud R, Koch C, Gerstner W (2015).
-       Automated high-throughput characterization of single neurons by means of
-       simplified spiking models. PLoS Computational Biology, 11(6), e1004275.
-       DOI: https://doi.org/10.1371/journal.pcbi.1004275
-
-Sends
-+++++
-
-SpikeEvent
-
-Receives
-++++++++
-
-SpikeEvent, CurrentEvent, DataLoggingRequest
-
-See also
-++++++++
-
-pp_psc_delta, gif_psc_exp, gif_cond_exp, gif_cond_exp_multisynapse
-
-Examples using this model
-+++++++++++++++++++++++++
-
-.. listexamples:: gif_psc_exp_multisynapse
-
-EndUserDocs */
-
-void register_gif_psc_exp_multisynapse( const std::string& name );
-
-class gif_psc_exp_multisynapse : public ArchivingNode
+class gif_psc_exp_multisynapse : public Archiving_Node
 {
 
 public:
@@ -227,24 +159,25 @@ public:
   using Node::handle;
   using Node::handles_test_event;
 
-  size_t send_test_event( Node&, size_t, synindex, bool ) override;
+  port send_test_event( Node&, rport, synindex, bool );
 
-  void handle( SpikeEvent& ) override;
-  void handle( CurrentEvent& ) override;
-  void handle( DataLoggingRequest& ) override;
+  void handle( SpikeEvent& );
+  void handle( CurrentEvent& );
+  void handle( DataLoggingRequest& );
 
-  size_t handles_test_event( SpikeEvent&, size_t ) override;
-  size_t handles_test_event( CurrentEvent&, size_t ) override;
-  size_t handles_test_event( DataLoggingRequest&, size_t ) override;
+  port handles_test_event( SpikeEvent&, rport );
+  port handles_test_event( CurrentEvent&, rport );
+  port handles_test_event( DataLoggingRequest&, rport );
 
-  void get_status( DictionaryDatum& ) const override;
-  void set_status( const DictionaryDatum& ) override;
+  void get_status( DictionaryDatum& ) const;
+  void set_status( const DictionaryDatum& );
 
 private:
-  void init_buffers_() override;
-  void pre_run_hook() override;
+  void init_state_( const Node& proto );
+  void init_buffers_();
+  void calibrate();
 
-  void update( Time const&, const long, const long ) override;
+  void update( Time const&, const long, const long );
 
   // The next two classes need to be friends to access the State_ class/member
   friend class RecordablesMap< gif_psc_exp_multisynapse >;
@@ -297,8 +230,8 @@ private:
 
     Parameters_(); //!< Sets default parameter values
 
-    void get( DictionaryDatum& ) const;             //!< Store current values in dictionary
-    void set( const DictionaryDatum&, Node* node ); //!< Set values from dictionary
+    void get( DictionaryDatum& ) const; //!< Store current values in dictionary
+    void set( const DictionaryDatum& ); //!< Set values from dictionary
 
     //! Return the number of receptor ports
     inline size_t
@@ -315,22 +248,24 @@ private:
    */
   struct State_
   {
-    double I_stim_; //!< Piecewise constant external current
-    double V_;      //!< Membrane potential
-    double sfa_;    //!< Change of the 'threshold' due to adaptation
-    double stc_;    //!< Spike triggered current
+    double I_stim_; //!< This is piecewise constant external current
+    double V_;      //!< This is the membrane potential
+    double sfa_; //!< This is the change of the 'threshold' due to adaptation.
+    double stc_; //!< Spike triggered current.
 
-    std::vector< double > sfa_elems_; //!< Vector of adaptation parameters
-    std::vector< double > stc_elems_; //!< Vector of spike triggered parameters
+    std::vector< double > sfa_elems_; //!< Vector of adaptation parameters.
+    std::vector< double > stc_elems_; //!< Vector of spike triggered parameters.
 
-    std::vector< double > i_syn_; //!< Instantaneous currents of different synapses
+    std::vector< double >
+      i_syn_; //!< instantaneous currents of different synapses.
 
-    unsigned int r_ref_; //!< Absolute refractory counter (no membrane potential propagation)
+    //!< absolute refractory counter (no membrane potential propagation)
+    unsigned int r_ref_;
 
     State_(); //!< Default initialization
 
     void get( DictionaryDatum&, const Parameters_& ) const;
-    void set( const DictionaryDatum&, const Parameters_&, Node* );
+    void set( const DictionaryDatum&, const Parameters_& );
   };
 
   // ----------------------------------------------------------------
@@ -362,13 +297,15 @@ private:
     double P33_; // decay term of membrane potential
     double P31_; // coefficient for solving membrane potential equation
 
-    std::vector< double > P_sfa_; // decay terms of spike-triggered current elements
+    std::vector< double >
+      P_sfa_; // decay terms of spike-triggered current elements
     std::vector< double > P_stc_; // decay terms of adaptive threshold elements
 
     std::vector< double > P11_syn_; // decay terms of synaptic currents
-    std::vector< double > P21_syn_; // coefficients for solving membrane potential equation
+    std::vector< double >
+      P21_syn_; // coefficients for solving membrane potential equation
 
-    RngPtr rng_; // random number generator of my own thread
+    librandom::RngPtr rng_; // random number generator of my own thread
 
     unsigned int RefractoryCounts_;
   };
@@ -399,6 +336,7 @@ private:
   // ----------------------------------------------------------------
 
   /**
+   * @defgroup iaf_psc_alpha_data
    * Instances of private data structures for the different types
    * of data pertaining to the model.
    * @note The order of definitions is important for speed.
@@ -414,8 +352,11 @@ private:
   static RecordablesMap< gif_psc_exp_multisynapse > recordablesMap_;
 };
 
-inline size_t
-gif_psc_exp_multisynapse::send_test_event( Node& target, size_t receptor_type, synindex, bool )
+inline port
+gif_psc_exp_multisynapse::send_test_event( Node& target,
+  rport receptor_type,
+  synindex,
+  bool )
 {
   SpikeEvent e;
   e.set_sender( *this );
@@ -423,10 +364,11 @@ gif_psc_exp_multisynapse::send_test_event( Node& target, size_t receptor_type, s
   return target.handles_test_event( e, receptor_type );
 }
 
-inline size_t
-gif_psc_exp_multisynapse::handles_test_event( SpikeEvent&, size_t receptor_type )
+inline port
+gif_psc_exp_multisynapse::handles_test_event( SpikeEvent&, rport receptor_type )
 {
-  if ( receptor_type <= 0 or receptor_type > P_.n_receptors_() )
+  if ( receptor_type <= 0
+    || receptor_type > static_cast< port >( P_.n_receptors_() ) )
   {
     throw IncompatibleReceptorType( receptor_type, get_name(), "SpikeEvent" );
   }
@@ -435,8 +377,9 @@ gif_psc_exp_multisynapse::handles_test_event( SpikeEvent&, size_t receptor_type 
   return receptor_type;
 }
 
-inline size_t
-gif_psc_exp_multisynapse::handles_test_event( CurrentEvent&, size_t receptor_type )
+inline port
+gif_psc_exp_multisynapse::handles_test_event( CurrentEvent&,
+  rport receptor_type )
 {
   if ( receptor_type != 0 )
   {
@@ -445,8 +388,9 @@ gif_psc_exp_multisynapse::handles_test_event( CurrentEvent&, size_t receptor_typ
   return 0;
 }
 
-inline size_t
-gif_psc_exp_multisynapse::handles_test_event( DataLoggingRequest& dlr, size_t receptor_type )
+inline port
+gif_psc_exp_multisynapse::handles_test_event( DataLoggingRequest& dlr,
+  rport receptor_type )
 {
   if ( receptor_type != 0 )
   {
@@ -460,23 +404,23 @@ gif_psc_exp_multisynapse::get_status( DictionaryDatum& d ) const
 {
   P_.get( d );
   S_.get( d, P_ );
-  ArchivingNode::get_status( d );
+  Archiving_Node::get_status( d );
   ( *d )[ names::recordables ] = recordablesMap_.get_list();
 }
 
 inline void
 gif_psc_exp_multisynapse::set_status( const DictionaryDatum& d )
 {
-  Parameters_ ptmp = P_;     // temporary copy in case of errors
-  ptmp.set( d, this );       // throws if BadProperty
-  State_ stmp = S_;          // temporary copy in case of errors
-  stmp.set( d, ptmp, this ); // throws if BadProperty
+  Parameters_ ptmp = P_; // temporary copy in case of errors
+  ptmp.set( d );         // throws if BadProperty
+  State_ stmp = S_;      // temporary copy in case of errors
+  stmp.set( d, ptmp );   // throws if BadProperty
 
   // We now know that (ptmp, stmp) are consistent. We do not
   // write them back to (P_, S_) before we are also sure that
   // the properties to be set in the parent class are internally
   // consistent.
-  ArchivingNode::set_status( d );
+  Archiving_Node::set_status( d );
 
   // if we get here, temporaries contain consistent set of properties
   P_ = ptmp;

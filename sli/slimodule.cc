@@ -35,7 +35,7 @@ SLIModule::install( std::ostream&, SLIInterpreter* i )
 }
 
 const std::string
-SLIModule::commandstring() const
+SLIModule::commandstring( void ) const
 {
   return std::string();
 }

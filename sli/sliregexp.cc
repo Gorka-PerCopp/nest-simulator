@@ -28,12 +28,15 @@
 // Includes from sli:
 #include "arraydatum.h"
 #include "dictdatum.h"
+#include "doubledatum.h"
 #include "integerdatum.h"
-#include "lockptrdatum.h"
+#include "lockptrdatum_impl.h"
 #include "stringdatum.h"
 
 
 SLIType RegexpModule::RegexType;
+
+template class lockPTRDatum< Regex, &RegexpModule::RegexType >;
 
 typedef lockPTRDatum< Regex, &RegexpModule::RegexType > RegexDatum;
 
@@ -47,7 +50,7 @@ Regex::~Regex()
 }
 
 regex_t*
-Regex::get()
+Regex::get( void )
 {
   return &r;
 }
@@ -94,13 +97,13 @@ RegexpModule::init( SLIInterpreter* i )
 
 
 const std::string
-RegexpModule::name() const
+RegexpModule::name( void ) const
 {
   return std::string( "POSIX-Regexp" );
 }
 
 const std::string
-RegexpModule::commandstring() const
+RegexpModule::commandstring( void ) const
 {
   return std::string( "(regexp) run" );
 }
@@ -113,11 +116,12 @@ RegexpModule::RegcompFunction::execute( SLIInterpreter* i ) const
   //                           Regex integer false
   assert( i->OStack.load() >= 2 );
 
-  IntegerDatum* id = dynamic_cast< IntegerDatum* >( i->OStack.pick( 0 ).datum() );
+  IntegerDatum* id =
+    dynamic_cast< IntegerDatum* >( i->OStack.pick( 0 ).datum() );
   StringDatum* sd = dynamic_cast< StringDatum* >( i->OStack.pick( 1 ).datum() );
 
-  assert( sd );
-  assert( id );
+  assert( sd != NULL );
+  assert( id != NULL );
 
 
   Regex* MyRegex = new Regex;
@@ -134,7 +138,7 @@ RegexpModule::RegcompFunction::execute( SLIInterpreter* i ) const
     Token it( new IntegerDatum( e ) );
     i->OStack.push_move( it );
     i->OStack.push( i->baselookup( i->false_name ) );
-  }
+  };
   i->EStack.pop();
 }
 
@@ -143,16 +147,17 @@ RegexpModule::RegerrorFunction::execute( SLIInterpreter* i ) const
 {
   assert( i->OStack.load() >= 2 );
 
-  IntegerDatum* id = dynamic_cast< IntegerDatum* >( i->OStack.pick( 0 ).datum() );
+  IntegerDatum* id =
+    dynamic_cast< IntegerDatum* >( i->OStack.pick( 0 ).datum() );
   RegexDatum* rd = dynamic_cast< RegexDatum* >( i->OStack.pick( 1 ).datum() );
 
-  assert( rd );
-  assert( id );
+  assert( rd != NULL );
+  assert( id != NULL );
 
   char* error_buffer = new char[ 256 ];
   regerror( id->get(), rd->get()->get(), error_buffer, 256 );
   Token sd( new StringDatum( error_buffer ) );
-  delete[] ( error_buffer );
+  delete[]( error_buffer );
 
   // The lockPTR rd gets locked when calling the get() function.
   // In order to be able to use (delete) this object we need to
@@ -174,19 +179,21 @@ RegexpModule::RegexecFunction::execute( SLIInterpreter* i ) const
 
   RegexDatum* rd = dynamic_cast< RegexDatum* >( i->OStack.pick( 3 ).datum() );
   StringDatum* sd = dynamic_cast< StringDatum* >( i->OStack.pick( 2 ).datum() );
-  IntegerDatum* sized = dynamic_cast< IntegerDatum* >( i->OStack.pick( 1 ).datum() );
-  IntegerDatum* eflagsd = dynamic_cast< IntegerDatum* >( i->OStack.pick( 0 ).datum() );
+  IntegerDatum* sized =
+    dynamic_cast< IntegerDatum* >( i->OStack.pick( 1 ).datum() );
+  IntegerDatum* eflagsd =
+    dynamic_cast< IntegerDatum* >( i->OStack.pick( 0 ).datum() );
 
-  assert( rd );
-  assert( sd );
-  assert( sized );
-  assert( eflagsd );
+  assert( rd != NULL );
+  assert( sd != NULL );
+  assert( sized != NULL );
+  assert( eflagsd != NULL );
 
   int size = sized->get();
   regmatch_t* pm = new regmatch_t[ size ];
 
   Regex* r = rd->get();
-  assert( r );
+  assert( r != NULL );
   rd->unlock();
 
   int e = regexec( r->get(), sd->c_str(), size, pm, eflagsd->get() );
@@ -208,7 +215,7 @@ RegexpModule::RegexecFunction::execute( SLIInterpreter* i ) const
     Token array_token( PushArray );
     i->OStack.push_move( array_token );
   };
-  delete[] ( pm );
+  delete[]( pm );
   i->OStack.push_move( id );
   i->EStack.pop();
 }

@@ -23,10 +23,10 @@
 #ifndef CONNECTION_LABEL_H
 #define CONNECTION_LABEL_H
 
-#include "dictdatum.h"
-#include "dictutils.h"
 #include "nest.h"
 #include "nest_names.h"
+#include "dictdatum.h"
+#include "dictutils.h"
 
 namespace nest
 {
@@ -42,9 +42,7 @@ const static long UNLABELED_CONNECTION = -1;
 
 /**
  * The class ConnectionLabel enables synapse model to be labeled by a positive
- * integer.
- *
- * The label can be set / retrieved with the `names::synapse_label`
+ * integer. The label can be set / retrieved with the `names::synapse_label`
  * property in the parameter dictionary of `Set/GetStatus` or `Connect`.
  * Using the `GetConnections` function, synapses with the same label can be
  * specified.
@@ -98,7 +96,8 @@ ConnectionLabel< ConnectionT >::get_status( DictionaryDatum& d ) const
 
 template < typename ConnectionT >
 void
-ConnectionLabel< ConnectionT >::set_status( const DictionaryDatum& d, ConnectorModel& cm )
+ConnectionLabel< ConnectionT >::set_status( const DictionaryDatum& d,
+  ConnectorModel& cm )
 {
   long lbl;
   if ( updateValue< long >( d, names::synapse_label, lbl ) )

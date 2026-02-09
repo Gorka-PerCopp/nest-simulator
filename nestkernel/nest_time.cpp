@@ -38,11 +38,24 @@
 
 using namespace nest;
 
+/* Obtain time resolution information from configuration
+   variables or use defaults.
+*/
+
+#ifndef CONFIG_TICS_PER_MS
+#define CONFIG_TICS_PER_MS 1000.0
+#endif
+
+#ifndef CONFIG_TICS_PER_STEP
+#define CONFIG_TICS_PER_STEP 100
+#endif
+
 const double Time::Range::TICS_PER_MS_DEFAULT = CONFIG_TICS_PER_MS;
 const tic_t Time::Range::TICS_PER_STEP_DEFAULT = CONFIG_TICS_PER_STEP;
 
 tic_t Time::Range::TICS_PER_STEP = Time::Range::TICS_PER_STEP_DEFAULT;
-double Time::Range::TICS_PER_STEP_INV = 1. / static_cast< double >( Time::Range::TICS_PER_STEP );
+double Time::Range::TICS_PER_STEP_INV =
+  1. / static_cast< double >( Time::Range::TICS_PER_STEP );
 tic_t Time::Range::TICS_PER_STEP_RND = Time::Range::TICS_PER_STEP - 1;
 
 double Time::Range::TICS_PER_MS = Time::Range::TICS_PER_MS_DEFAULT;
@@ -55,9 +68,9 @@ double Time::Range::STEPS_PER_MS = 1 / Time::Range::MS_PER_STEP;
 // should only be necessary when not folded away
 // by the compiler as compile time consts
 const tic_t Time::LimitPosInf::tics;
-const long Time::LimitPosInf::steps;
+const delay Time::LimitPosInf::steps;
 const tic_t Time::LimitNegInf::tics;
-const long Time::LimitNegInf::steps;
+const delay Time::LimitNegInf::steps;
 
 tic_t
 Time::compute_max()
@@ -93,7 +106,8 @@ Time::set_resolution( double ms_per_step )
 {
   assert( ms_per_step > 0 );
 
-  Range::TICS_PER_STEP = static_cast< tic_t >( dround( Range::TICS_PER_MS * ms_per_step ) );
+  Range::TICS_PER_STEP =
+    static_cast< tic_t >( dround( Range::TICS_PER_MS * ms_per_step ) );
   Range::TICS_PER_STEP_INV = 1. / static_cast< double >( Range::TICS_PER_STEP );
   Range::TICS_PER_STEP_RND = Range::TICS_PER_STEP - 1;
 
@@ -141,7 +155,8 @@ Time::ms::fromtoken( const Token& t )
     return ddat->get();
   }
 
-  throw TypeMismatch( IntegerDatum().gettypename().toString() + " or " + DoubleDatum().gettypename().toString(),
+  throw TypeMismatch( IntegerDatum().gettypename().toString() + " or "
+      + DoubleDatum().gettypename().toString(),
     t.datum()->gettypename().toString() );
 }
 
@@ -156,9 +171,9 @@ Time::fromstamp( Time::ms_stamp t )
   {
     return LIM_NEG_INF.tics;
   }
-
   // why not just fmod STEPS_PER_MS? This gives different
-  // results in corner cases --- and I don't think the intended ones.
+  // results in corner cases --- and I don't think the
+  // intended ones.
   tic_t n = static_cast< tic_t >( t.t * Range::TICS_PER_MS );
   n -= ( n % Range::TICS_PER_STEP );
   const double ms = n * Range::TICS_PER_STEP_INV * Range::MS_PER_STEP;
@@ -185,8 +200,7 @@ Time::reset_to_defaults()
   Range::STEPS_PER_MS = 1 / Range::MS_PER_STEP;
 }
 
-std::ostream&
-operator<<( std::ostream& strm, const Time& t )
+std::ostream& operator<<( std::ostream& strm, const Time& t )
 {
   if ( t.is_neg_inf() )
   {
@@ -198,7 +212,8 @@ operator<<( std::ostream& strm, const Time& t )
   }
   else
   {
-    strm << t.get_ms() << " ms (= " << t.get_tics() << " tics = " << t.get_steps()
+    strm << t.get_ms() << " ms (= " << t.get_tics()
+         << " tics = " << t.get_steps()
          << ( t.get_steps() != 1 ? " steps)" : " step)" );
   }
 

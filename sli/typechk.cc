@@ -68,18 +68,18 @@ void
 TypeTrie::TypeNode::toTokenArray( TokenArray& a ) const
 {
   assert( a.size() == 0 );
-  if ( not next and not alt ) // Leaf node
+  if ( next == NULL && alt == NULL ) // Leaf node
   {
     a.push_back( func );
   }
   else
   {
-    assert( next );
+    assert( next != NULL );
     a.push_back( LiteralDatum( type ) );
     TokenArray a_next;
     next->toTokenArray( a_next );
     a.push_back( ArrayDatum( a_next ) );
-    if ( alt )
+    if ( alt != NULL )
     {
       TokenArray a_alt;
       alt->toTokenArray( a_alt );
@@ -90,9 +90,10 @@ TypeTrie::TypeNode::toTokenArray( TokenArray& a ) const
 }
 
 void
-TypeTrie::TypeNode::info( std::ostream& out, std::vector< TypeNode const* >& tl ) const
+TypeTrie::TypeNode::info( std::ostream& out,
+  std::vector< TypeNode const* >& tl ) const
 {
-  if ( not next and not alt ) // Leaf node
+  if ( next == NULL && alt == NULL ) // Leaf node
   {
     // print type list then function
     for ( int i = tl.size() - 1; i >= 0; --i )
@@ -103,11 +104,11 @@ TypeTrie::TypeNode::info( std::ostream& out, std::vector< TypeNode const* >& tl 
   }
   else
   {
-    assert( next );
+    assert( next != NULL );
     tl.push_back( this );
     next->info( out, tl );
     tl.pop_back();
-    if ( alt )
+    if ( alt != NULL )
     {
       alt->info( out, tl );
     }
@@ -120,7 +121,7 @@ TypeTrie::newnode( const TokenArray& ta ) const
 {
   assert( ta.size() > 0 );
   assert( ta.size() <= 3 );
-  TypeNode* n = nullptr;
+  TypeNode* n = NULL;
   if ( ta.size() == 1 ) // leaf
   {
     n = new TypeNode( sli::object, ta[ 0 ] );
@@ -130,15 +131,15 @@ TypeTrie::newnode( const TokenArray& ta ) const
     // first object in the array must be a literal, indicating the type
     // the second and third object must be an array.
     LiteralDatum* typed = dynamic_cast< LiteralDatum* >( ta[ 0 ].datum() );
-    assert( typed );
+    assert( typed != NULL );
     ArrayDatum* nextd = dynamic_cast< ArrayDatum* >( ta[ 1 ].datum() );
-    assert( nextd );
+    assert( nextd != NULL );
     n = new TypeNode( *typed );
     n->next = newnode( *nextd );
     if ( ta.size() == 3 )
     {
       ArrayDatum* altd = dynamic_cast< ArrayDatum* >( ta[ 2 ].datum() );
-      assert( altd );
+      assert( altd != NULL );
       n->alt = newnode( *altd );
     }
   }
@@ -167,20 +168,23 @@ TypeTrie::getalternative( TypeTrie::TypeNode* pos, const Name& type )
   if ( pos->type == empty )
   {
     pos->type = type;
+    //    assert(pos->next == NULL);
     return pos;
   }
 
   while ( type != pos->type )
   {
-    if ( not pos->alt )
+    if ( pos->alt == NULL )
     {
       pos->alt = new TypeNode( type );
     }
 
     if ( pos->type == sli::any )
     {
-      // When entering this if, the previous if added an extra Node,
-      // thus pos->alt->alt will not be defined yet (nullptr)
+      // any must have been the tail and the previous
+      // if must have added an extra Node, thus the following
+      // assertion must hold:
+      // assert(pos->alt->alt == NULL);
 
       TypeNode* new_tail = pos->alt;
 
@@ -190,7 +194,7 @@ TypeTrie::getalternative( TypeTrie::TypeNode* pos, const Name& type )
       new_tail->type = sli::any;
       new_tail->func.swap( pos->func );
       new_tail->next = pos->next;
-      pos->next = nullptr;
+      pos->next = NULL;
 
       // this  while() cycle will terminate, as
       // pos->type==type by assignment.
@@ -232,7 +236,7 @@ TypeTrie::insert_move( const TypeArray& a, Token& f )
   TypeNode* pos = root;
   const Name empty;
 
-  assert( root );
+  assert( root != NULL );
 
   // Functions with no parameters are possible, but useless in trie
   // structures, so it is best to forbid them!
@@ -242,7 +246,7 @@ TypeTrie::insert_move( const TypeArray& a, Token& f )
   {
 
     pos = getalternative( pos, a[ level ] );
-    if ( not pos->next )
+    if ( pos->next == NULL )
     {
       pos->next = new TypeNode( empty );
     }
@@ -250,12 +254,12 @@ TypeTrie::insert_move( const TypeArray& a, Token& f )
   }
 
   /* Error conditions:
-     1. If pos->next != nullptr, the parameter list overlaps with
+     1. If pos->next!=NULL, the parameter list overlaps with
      an existing function definition.
-     2. If pos->alt != nullptr, something undefined must have happened.
+     2. If pos->alt != NULL, something undefined must have happened.
      This should be impossible.
   */
-  if ( not pos->next )
+  if ( pos->next == NULL )
   {
     pos->type = sli::object;
     pos->func.move( f );
@@ -277,7 +281,7 @@ void
 TypeTrie::toTokenArray( TokenArray& a ) const
 {
   a.clear();
-  if ( root )
+  if ( root != NULL )
   {
     root->toTokenArray( a );
   }
@@ -288,7 +292,7 @@ TypeTrie::info( std::ostream& out ) const
 {
   std::vector< TypeNode const* > tl;
   tl.reserve( 5 );
-  if ( root )
+  if ( root != NULL )
   {
     root->info( out, tl );
   }

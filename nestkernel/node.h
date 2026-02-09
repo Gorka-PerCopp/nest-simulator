@@ -32,15 +32,11 @@
 #include <vector>
 
 // Includes from nestkernel:
-#include "common_synapse_properties.h"
-#include "deprecation_warning.h"
 #include "event.h"
 #include "histentry.h"
 #include "nest_names.h"
 #include "nest_time.h"
 #include "nest_types.h"
-#include "secondary_event.h"
-#include "weight_optimizer.h"
 
 // Includes from sli:
 #include "dictdatum.h"
@@ -52,13 +48,12 @@
 namespace nest
 {
 class Model;
-class ArchivingNode;
-class TimeConverter;
+class Subnet;
+class Archiving_Node;
 
 
 /**
  * @defgroup user_interface Model developer interface.
- *
  * Functions and classes important for implementing new Node and
  * Model classes.
  */
@@ -80,33 +75,34 @@ class TimeConverter;
  * to directly subclass from base class Node.
  *
  * @see class Event
+ * @see Subnet
  * @ingroup user_interface
  */
 
-/** @BeginDocumentation
-
+/* BeginDocumentation
    Name: Node - General properties of all nodes.
-
    Parameters:
    frozen     booltype    - Whether the node is updated during simulation
-   global_id  integertype - The node ID of the node (cf. local_id)
+   global_id  integertype - The global id of the node (cf. local_id)
    local      booltype    - Whether the node is available on the local process
+   local_id   integertype - The id of the node in the current  (cf. global_id)
    model      literaltype - The model type the node was created from
+   parent     integertype - The global id of the parent subnet
    state      integertype - The state of the node (see the help on elementstates
                             for details)
    thread     integertype - The id of the thread the node is assigned to (valid
                             locally)
    vp         integertype - The id of the virtual process the node is assigned
                             to (valid globally)
-
    SeeAlso: GetStatus, SetStatus, elementstates
  */
 
 class Node
 {
   friend class NodeManager;
-  friend class ModelManager;
+  friend class Subnet;
   friend class proxynode;
+  friend class Synapse;
   friend class Model;
   friend class SimulationManager;
 
@@ -118,27 +114,23 @@ public:
   virtual ~Node();
 
   /**
-   * This function creates a new object by calling the derived class' copy constructor and
-   * returning its pointer.
+   * Virtual copy constructor.
+   * This function should create a new object by
+   * calling the derived class' copy constructor and
+   * return its pointer.
    */
   virtual Node*
   clone() const
   {
-    return nullptr;
+    return 0;
   }
 
   /**
-   * Returns true if the node has proxies on remote threads.
-   *
-   * This is used to discriminate between different types of nodes, when adding
+   * Returns true if the node has proxies on remote threads. This is
+   * used to discriminate between different types of nodes, when adding
    * new nodes to the network.
    */
   virtual bool has_proxies() const;
-
-  /**
-   * Returns true if the node supports the Urbanczik-Senn plasticity rule
-   */
-  virtual bool supports_urbanczik_archiving() const;
 
   /**
    * Returns true if the node only receives events from nodes/devices
@@ -148,31 +140,31 @@ public:
 
   /**
    * Returns true if the node exists only once per process, but does
-   * not have proxies on remote threads.
+   * not have proxies on remote threads. This is used to
+   * discriminate between different types of nodes, when adding new
+   * nodes to the network.
    *
-   * This is used to discriminate between different types of nodes, when adding new
-   * nodes to the network. As of now, this function is only true for MUSIC related proxies?
+   * TODO: Is this true for *any* model at all? Maybe MUSIC related?
    */
   virtual bool one_node_per_process() const;
 
   /**
-   * Returns true if the node sends/receives off-grid events.
-   *
-   * This is used to discriminate between different types of nodes when adding
+   * Returns true if the node if it sends/receives -grid events This is
+   * used to discriminate between different types of nodes, when adding
    * new nodes to the network.
    */
+
   virtual bool is_off_grid() const;
 
+
   /**
-   * Returns true if the node is a proxy node.
-   *
-   * This is implemented because the use of RTTI is rather expensive.
+   * Returns true if the node is a proxy node. This is implemented because
+   * the use of RTTI is rather expensive.
    */
   virtual bool is_proxy() const;
 
   /**
    * Return class name.
-   *
    * Returns name of node model (e.g. "iaf_psc_alpha") as string.
    * This name is identical to the name that is used to identify
    * the model in the interpreter's model dictionary.
@@ -180,38 +172,54 @@ public:
   std::string get_name() const;
 
   /**
-   * Return the element type of the node.
-   *
-   * The returned Name is a free label describing the class of network
-   * elements a node belongs to. Currently used values are "neuron",
-   * "recorder", "stimulator", and "other", which are all defined as
-   * static Name objects in the names namespace.
-   * This function is overwritten with a corresponding value in the
-   * derived classes
-   */
-  virtual Name get_element_type() const;
-
-  /**
    * Return global Network ID.
-   *
    * Returns the global network ID of the Node.
    * Each node has a unique network ID which can be used to access
-   * the Node comparable to a pointer.
-   *
-   * The smallest valid node ID is 1.
+   * the Node comparable to a pointer. By definition, the top-level
+   * subnet has ID=0.
    */
-  size_t get_node_id() const;
+  index get_gid() const;
 
+  /**
+   * Return local node ID.
+   * Returns the ID of the node within the parent subject.
+   * Local IDs start with 0.
+   */
+  index get_lid() const;
+
+  /**
+   * Return the index to the node in the node array of the parent subnet.
+   * @note Since subnets no longer store non-local nodes, LIDs are no
+   *       longer identical to these indices.
+   */
+  index get_subnet_index() const;
 
   /**
    * Return model ID of the node.
-   *
    * Returns the model ID of the model for this node.
-   * Model IDs start with 0.
+   * Model IDs start with 0, Subnet always having ID 0.
    * @note The model ID is not stored in the model prototype instance.
    *       It is only set when actual nodes are created from a prototype.
    */
   int get_model_id() const;
+
+  /**
+   * Return pointer to parent subnet.
+   * Each node is member of a subnet whose pointer can be accessed
+   * through this function.
+   * This pointer must be non NULL for all Nodes which are not the
+   * top-level subnet. Only the top-level subnet returns NULL.
+   */
+  Subnet* get_parent() const;
+
+  /**
+   * Prints out one line of the tree view of the network.
+   */
+  virtual std::string
+  print_network( int, int, std::string = "" )
+  {
+    return std::string();
+  }
 
   /**
    * Returns true if node is frozen, i.e., shall not be updated.
@@ -230,38 +238,50 @@ public:
   void set_node_uses_wfr( const bool );
 
   /**
-   * Initialize node prior to first simulation after node has been created.
-   *
-   * init() allows the node to configure internal data structures prior to
-   * being simulated. The method has an effect only the first time it is
-   * called on a given node, otherwise it returns immediately. init() calls
-   * virtual functions init_state_() and init_buffers_().
+   * Returns true if the node is allocated in the local process.
    */
-  void init();
+  bool is_local() const;
+
+  /**
+   * Set state variables to the default values for the model.
+   * Dynamic variables are all observable state variables of a node
+   * that change during Node::update().
+   * After calling init_state(), the state variables
+   * should have the same values that they had after the node was
+   * created. In practice, they will be initialized to the values
+   * of the prototype node (model).
+   * @note If the parameters of the model have been changes since the node
+   *       was created, the node will be initialized to the present values
+   *       set in the model.
+   * @note This function is the public interface to the private function
+   *       Node::init_state_(const Node&) that must be implemented by
+   *       derived classes.
+   */
+  void init_state();
+
+  /**
+   * Initialize buffers of a node.
+   * This function initializes the Buffers of a Node, e.g., ring buffers
+   * for incoming events, buffers for logging potentials.
+   * This function is called before Simulate is called for the first time
+   * on a node, but not upon resumption of a simulation.
+   * This is a wrapper function, which calls the overloaded
+   * Node::init_buffers_() worker only if the buffers of the node have not been
+   * initialized yet.
+   */
+  void init_buffers();
 
   /**
    * Re-calculate dependent parameters of the node.
-   *
    * This function is called each time a simulation is begun/resumed.
    * It must re-calculate all internal Variables of the node required
    * for spike handling or updating the node.
    *
    */
-  virtual void pre_run_hook() = 0;
+  virtual void calibrate() = 0;
 
   /**
-   * Re-calculate time-based properties of the node.
-   * This function is called after a change in resolution.
-   */
-  virtual void
-  calibrate_time( const TimeConverter& )
-  {
-  }
-
-  /**
-   * Cleanup node after Run.
-   *
-   * Override this function if a node needs to
+   * Cleanup node after Run. Override this function if a node needs to
    * "wrap up" things after a call to Run, i.e., before
    * SimulationManager::run() returns. Typical use-cases are devices
    * that need to flush buffers.
@@ -273,7 +293,6 @@ public:
 
   /**
    * Finalize node.
-   *
    * Override this function if a node needs to "wrap up" things after a
    * full simulation, i.e., a cycle of Prepare, Run, Cleanup. Typical
    * use-cases are devices that need to close files.
@@ -284,44 +303,39 @@ public:
   }
 
   /**
-   * Advance the state of the node in time through the given interval.
+   * Bring the node from state $t$ to $t+n*dt$.
    *
-   * This method advances the state of the node through the interval
-   * ``(origin+from, origin+to]``, which is at most ``min_delay`` long.
+   * n->update(T, from, to) performs the update steps beginning
+   * at T+from .. T+to-1, ie, emitting events with time stamps
+   * T+from+1 .. T+to.
    *
-   * - Precondition: State of the node corresponds to the time ``origin+from``.
-   * - Postcondition: State of the node corresponds to the time ``origin+to``.
-   *
-   * Each step between ``from`` and ``to`` corresponds to one simulation timestep (``nest.resolution``).
-   *
-   * If events are emitted, they have time stamps in the interval
-   * ``T+from+1 .. T+to``.
-   *
-   * @param origin network time at beginning of time slice
-   * @param from initial step inside time slice
-   * @param to post-final step inside time slice
+   * @param Time   network time at beginning of time slice.
+   * @param long initial step inside time slice
+   * @param long post-final step inside time slice
    *
    */
   virtual void update( Time const&, const long, const long ) = 0;
 
   /**
-   * Advance the state of the node in time through the given interval (see
-   * Node::update() for more details).
+   * Bring the node from state $t$ to $t+n*dt$, sends SecondaryEvents
+   * (e.g. GapJunctionEvent) and resets state variables to values at $t$.
+   *
+   * n->wfr_update(T, from, to) performs the update steps beginning
+   * at T+from .. T+to-1.
    *
    * Does not emit spikes, does not log state variables.
    *
    * throws UnexpectedEvent if not reimplemented in derived class
    *
-   * @param origin network time at beginning of time slice
-   * @param from initial step inside time slice
-   * @param to post-final step inside time slice
+   * @param Time   network time at beginning of time slice.
+   * @param long initial step inside time slice
+   * @param long post-final step inside time slice
    *
    */
   virtual bool wfr_update( Time const&, const long, const long );
 
   /**
    * @defgroup status_interface Configuration interface.
-   *
    * Functions and infrastructure, responsible for the configuration
    * of Nodes from the SLI Interpreter level.
    *
@@ -339,7 +353,6 @@ public:
   /**
    * Change properties of the node according to the
    * entries in the dictionary.
-   *
    * @param d Dictionary with named parameter settings.
    * @ingroup status_interface
    */
@@ -348,7 +361,6 @@ public:
   /**
    * Export properties of the node by setting
    * entries in the status dictionary.
-   *
    * @param d Dictionary.
    * @ingroup status_interface
    */
@@ -370,7 +382,6 @@ public:
 
   /**
    * Send an event to the receiving_node passed as an argument.
-   *
    * This is required during the connection handshaking to test,
    * if the receiving_node can handle the event type and receptor_type sent
    * by the source node.
@@ -382,11 +393,13 @@ public:
    * DS*Events when called with the dummy target, and *Events when called with
    * the real target, see #478.
    */
-  virtual size_t send_test_event( Node& receiving_node, size_t receptor_type, synindex syn_id, bool dummy_target );
+  virtual port send_test_event( Node& receiving_node,
+    rport receptor_type,
+    synindex syn_id,
+    bool dummy_target );
 
   /**
    * Check if the node can handle a particular event and receptor type.
-   *
    * This function is called upon connection setup by send_test_event().
    *
    * handles_test_event() function is used to verify that the receiver
@@ -403,25 +416,25 @@ public:
    * @ingroup event_interface
    * @throws IllegalConnection
    */
-  virtual size_t handles_test_event( SpikeEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( WeightRecorderEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( RateEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( DataLoggingRequest&, size_t receptor_type );
-  virtual size_t handles_test_event( CurrentEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( ConductanceEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( DoubleDataEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( DSSpikeEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( DSCurrentEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( GapJunctionEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( InstantaneousRateConnectionEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( DiffusionConnectionEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( DelayedRateConnectionEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( LearningSignalConnectionEvent&, size_t receptor_type );
-  virtual size_t handles_test_event( SICEvent&, size_t receptor_type );
+  virtual port handles_test_event( SpikeEvent&, rport receptor_type );
+  virtual port handles_test_event( WeightRecorderEvent&, rport receptor_type );
+  virtual port handles_test_event( RateEvent&, rport receptor_type );
+  virtual port handles_test_event( DataLoggingRequest&, rport receptor_type );
+  virtual port handles_test_event( CurrentEvent&, rport receptor_type );
+  virtual port handles_test_event( ConductanceEvent&, rport receptor_type );
+  virtual port handles_test_event( DoubleDataEvent&, rport receptor_type );
+  virtual port handles_test_event( DSSpikeEvent&, rport receptor_type );
+  virtual port handles_test_event( DSCurrentEvent&, rport receptor_type );
+  virtual port handles_test_event( GapJunctionEvent&, rport receptor_type );
+  virtual port handles_test_event( InstantaneousRateConnectionEvent&,
+    rport receptor_type );
+  virtual port handles_test_event( DiffusionConnectionEvent&,
+    rport receptor_type );
+  virtual port handles_test_event( DelayedRateConnectionEvent&,
+    rport receptor_type );
 
   /**
    * Required to check, if source neuron may send a SecondaryEvent.
-   *
    * This base class implementation throws IllegalConnection
    * and needs to be overwritten in the derived class.
    * @ingroup event_interface
@@ -431,7 +444,6 @@ public:
 
   /**
    * Required to check, if source neuron may send a SecondaryEvent.
-   *
    * This base class implementation throws IllegalConnection
    * and needs to be overwritten in the derived class.
    * @ingroup event_interface
@@ -441,7 +453,6 @@ public:
 
   /**
    * Required to check, if source neuron may send a SecondaryEvent.
-   *
    * This base class implementation throws IllegalConnection
    * and needs to be overwritten in the derived class.
    * @ingroup event_interface
@@ -451,7 +462,6 @@ public:
 
   /**
    * Required to check, if source neuron may send a SecondaryEvent.
-   *
    * This base class implementation throws IllegalConnection
    * and needs to be overwritten in the derived class.
    * @ingroup event_interface
@@ -460,98 +470,15 @@ public:
   virtual void sends_secondary_event( DelayedRateConnectionEvent& re );
 
   /**
-   * Required to check if source node may send a LearningSignalConnectionEvent.
-   *
-   * This base class implementation throws IllegalConnection
-   * and needs to be overwritten in the derived class.
-   * @ingroup event_interface
-   * @throws IllegalConnection
-   */
-  virtual void sends_secondary_event( LearningSignalConnectionEvent& re );
-
-  /**
-   * Required to check if source node may send a SICEvent.
-   *
-   * This base class implementation throws IllegalConnection
-   * and needs to be overwritten in the derived class.
-   * @ingroup event_interface
-   * @throws IllegalConnection
-   */
-  virtual void sends_secondary_event( SICEvent& sic );
-
-  /**
    * Register a STDP connection
    *
    * @throws IllegalConnection
    *
    */
-  virtual void register_stdp_connection( double, double );
-
-  /**
-   * @brief Registers an eprop synapse and initializes the update history.
-   *
-   * The time for the first entry of the update history is set to the neuron specific shift for `bsshslm_2020`
-   * models and to the negative transmission delay from the recurrent to the output layer otherwise.
-   *
-   * @throws IllegalConnection
-   */
-  virtual void register_eprop_connection();
-
-  /**
-   * @brief Retrieves the temporal shift of the signal.
-   *
-   * Retrieves the number of steps the time-point of the signal has to be shifted to
-   * place it at the correct location in the e-prop-related histories.
-   *
-   * @note Unlike the original e-prop, where signals arise instantaneously, NEST
-   * considers connection delays. Thus, to reproduce the original results, we
-   * compensate for the delays and synchronize the signals by shifting the
-   * history.
-   *
-   * @return The number of time steps to shift.
-   *
-   * @throws IllegalConnection
-   */
-  virtual long get_shift() const;
-
-  /**
-   *  Registers the current update in the update history and deregisters the previous update.
-   *
-   * @param t_previous_update The time step of the previous update.
-   * @param t_current_update The time step of the current update.
-   * @param eprop_isi_trace_cutoff The cutoff value for the eprop inter-spike interval trace (optional, default: 0).
-   *
-   * @throws IllegalConnection
-   */
-  virtual void write_update_to_history( const long t_previous_update,
-    const long t_current_update,
-    const long eprop_isi_trace_cutoff = 0 );
-
-  /**
-   * Retrieves the maximum number of time steps integrated between two consecutive spikes.
-   *
-   * @return The cutoff value for the inter-spike interval eprop trace.
-   *
-   * @throws IllegalConnection
-   */
-  virtual long get_eprop_isi_trace_cutoff() const;
-
-  /**
-   * Checks if the node is part of the recurrent network and thus not a readout neuron.
-   *
-   * @note The e-prop synapse calls this function of the target node. If true,
-   * it skips weight updates within the first interval step of the update
-   * interval.
-   *
-   * @return true if the node is an eprop recurrent node, false otherwise.
-   *
-   * @throws IllegalConnection
-   */
-  virtual bool is_eprop_recurrent_node() const;
+  virtual void register_stdp_connection( double );
 
   /**
    * Handle incoming spike events.
-   *
    * @param thrd Id of the calling thread.
    * @param e Event object.
    *
@@ -564,7 +491,6 @@ public:
 
   /**
    * Handle incoming weight recording events.
-   *
    * @param thrd Id of the calling thread.
    * @param e Event object.
    *
@@ -577,7 +503,6 @@ public:
 
   /**
    * Handler for rate events.
-   *
    * @see handle(SpikeEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -586,7 +511,6 @@ public:
 
   /**
    * Handler for universal data logging request.
-   *
    * @see handle(SpikeEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -595,7 +519,6 @@ public:
 
   /**
    * Handler for universal data logging request.
-   *
    * @see handle(SpikeEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -606,7 +529,6 @@ public:
 
   /**
    * Handler for current events.
-   *
    * @see handle(thread, SpikeEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -615,7 +537,6 @@ public:
 
   /**
    * Handler for conductance events.
-   *
    * @see handle(thread, SpikeEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -624,7 +545,6 @@ public:
 
   /**
    * Handler for DoubleData events.
-   *
    * @see handle(thread, SpikeEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -633,7 +553,6 @@ public:
 
   /**
    * Handler for gap junction events.
-   *
    * @see handle(thread, GapJunctionEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -642,7 +561,6 @@ public:
 
   /**
    * Handler for rate neuron events.
-   *
    * @see handle(thread, InstantaneousRateConnectionEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -651,7 +569,6 @@ public:
 
   /**
    * Handler for rate neuron events.
-   *
    * @see handle(thread, InstantaneousRateConnectionEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -660,7 +577,6 @@ public:
 
   /**
    * Handler for delay rate neuron events.
-   *
    * @see handle(thread, DelayedRateConnectionEvent&)
    * @ingroup event_interface
    * @throws UnexpectedEvent
@@ -668,26 +584,7 @@ public:
   virtual void handle( DelayedRateConnectionEvent& e );
 
   /**
-   * Handler for learning signal connection events.
-   *
-   * @see handle(thread, LearningSignalConnectionEvent&)
-   * @ingroup event_interface
-   * @throws UnexpectedEvent
-   */
-  virtual void handle( LearningSignalConnectionEvent& e );
-
-  /**
-   * Handler for slow inward current events (SICEvents).
-   *
-   * @see handle(thread,SICEvent&)
-   * @ingroup event_interface
-   * @throws UnexpectedEvent
-   */
-  virtual void handle( SICEvent& e );
-
-  /**
    * @defgroup SP_functions Structural Plasticity in NEST.
-   *
    * Functions related to accessibility and setup of variables required for
    * the implementation of a model of Structural Plasticity in NEST.
    *
@@ -697,7 +594,6 @@ public:
    * Return the Ca_minus value at time Ca_t which corresponds to the time of
    * the last update in Calcium concentration which is performed each time
    * a Node spikes.
-   *
    * Return 0.0 if not overridden
    * @ingroup SP_functions
    */
@@ -710,12 +606,10 @@ public:
   /**
    * Get the number of synaptic element for the current Node at Ca_t which
    * corresponds to the time of the last spike.
-   *
    * Return 0.0 if not overridden
    * @ingroup SP_functions
    */
-  virtual double
-  get_synaptic_elements( Name ) const
+  virtual double get_synaptic_elements( Name ) const
   {
     return 0.0;
   }
@@ -725,27 +619,23 @@ public:
    * Return 0 if not overridden
    * @ingroup SP_functions
    */
-  virtual int
-  get_synaptic_elements_vacant( Name ) const
+  virtual int get_synaptic_elements_vacant( Name ) const
   {
     return 0;
   }
 
   /**
    * Get the number of connected synaptic element for the current Node
-   *
    * Return 0 if not overridden
    * @ingroup SP_functions
    */
-  virtual int
-  get_synaptic_elements_connected( Name ) const
+  virtual int get_synaptic_elements_connected( Name ) const
   {
     return 0;
   }
 
   /**
    * Get the number of all synaptic elements for the current Node at time t
-   *
    * Return an empty map if not overridden
    * @ingroup SP_functions
    */
@@ -757,34 +647,29 @@ public:
 
   /**
    * Triggers the update of all SynapticElements
-   * stored in the synaptic_element_map_.
-   *
-   * It also updates the calcium concentration.
-   *
+   * stored in the synaptic_element_map_. It also updates the calcium
+   * concentration.
    * @param t double time when the update is being performed
    * @ingroup SP_functions
    */
-  virtual void update_synaptic_elements( double ) {};
+  virtual void update_synaptic_elements( double ){};
 
   /**
    * Is used to reduce the number of synaptic elements in the node through
-   * time.
-   *
-   * This amount is defined by tau_vacant.
+   * time. This amount is defined by tau_vacant.
    * @ingroup SP_functions
    */
-  virtual void decay_synaptic_elements_vacant() {};
+  virtual void decay_synaptic_elements_vacant(){};
 
   /**
    * Is used to update the number of connected
    * synaptic elements (SynapticElement::z_connected_) when a synapse
    * is formed or deleted.
-   *
    * @param type Name, name of the synaptic element to connect
    * @param n int number of new connections of the given type
    * @ingroup SP_functions
    */
-  virtual void connect_synaptic_element( Name, int ) {};
+  virtual void connect_synaptic_element( Name, int ){};
 
   /**
    * return the Kminus value at t (in ms).
@@ -792,98 +677,24 @@ public:
    */
   virtual double get_K_value( double t );
 
-  virtual double get_LTD_value( double t );
-
   /**
-   * write the Kminus, nearest_neighbor_Kminus, and Kminus_triplet
-   * values at t (in ms) to the provided locations.
-   *
+   * write the Kminus and triplet_Kminus values at t (in ms) to
+   * the provided locations.
    * @throws UnexpectedEvent
    */
-  virtual void get_K_values( double t, double& Kminus, double& nearest_neighbor_Kminus, double& Kminus_triplet );
+  virtual void get_K_values( double t, double& Kminus, double& triplet_Kminus );
 
   /**
-   * return the spike history for (t1,t2].
-   * @throws UnexpectedEvent
-   */
+  * return the spike history for (t1,t2].
+  * @throws UnexpectedEvent
+  */
   virtual void get_history( double t1,
     double t2,
     std::deque< histentry >::iterator* start,
     std::deque< histentry >::iterator* finish );
 
-  // for Clopath synapse
-  virtual void get_LTP_history( double t1,
-    double t2,
-    std::deque< histentry_extended >::iterator* start,
-    std::deque< histentry_extended >::iterator* finish );
-  // for Urbanczik synapse
-  virtual void get_urbanczik_history( double t1,
-    double t2,
-    std::deque< histentry_extended >::iterator* start,
-    std::deque< histentry_extended >::iterator* finish,
-    int );
-  // make neuron parameters accessible in Urbanczik synapse
-  virtual double get_C_m( int comp );
-  virtual double get_g_L( int comp );
-  virtual double get_tau_L( int comp );
-  virtual double get_tau_s( int comp );
-  virtual double get_tau_syn_ex( int comp );
-  virtual double get_tau_syn_in( int comp );
-
-  /**
-   * Compute gradient change for eprop synapses.
-   *
-   * This method is called from an eprop synapse on the eprop target neuron. It updates various parameters related to
-   * e-prop plasticity according to Bellec et al. (2020) with additional biological features described in Korcsak-Gorzo,
-   * Stapmanns, and Espinoza Valverde et al. (in preparation).
-   *
-   * @param t_spike [in] Time of the current spike.
-   * @param t_spike_previous [in] Time of the previous spike.
-   * @param z_previous_buffer [in, out] Value of presynaptic spiking variable from previous time step.
-   * @param z_bar [in, out] Filtered presynaptic spiking variable.
-   * @param e_bar [in, out] Filtered eligibility trace.
-   * @param e_bar_reg [in, out] Filtered eligibility trace for firing rate regularization.
-   * @param epsilon [out] Component of eligibility vector corresponding to the adaptive firing threshold variable.
-   * @param weight [in, out] Synaptic weight.
-   * @param cp [in] Common properties for synapses.
-   * @param optimizer [in] Instance of weight optimizer.
-   *
-   */
-  virtual void compute_gradient( const long t_spike,
-    const long t_spike_previous,
-    double& z_previous_buffer,
-    double& z_bar,
-    double& e_bar,
-    double& e_bar_reg,
-    double& epsilon,
-    double& weight,
-    const CommonSynapseProperties& cp,
-    WeightOptimizer* optimizer );
-
-  /**
-   * Compute gradient change for eprop synapses.
-   *
-   * This method is called from an eprop synapse on the eprop target neuron. It updates various parameters related to
-   * e-prop plasticity according to Bellec et al. (2020).
-   *
-   * @param presyn_isis [in, out] Vector of inter-spike intervals.
-   * @param t_previous_update [in] Time of the last update.
-   * @param t_previous_trigger_spike [in] Time of the last trigger spike.
-   * @param kappa [in] Decay factor for the eligibility trace.
-   * @param average_gradient [in] Boolean flag determining whether to compute an average of the gradients over the given
-   * period.
-   *
-   * @return Returns the computed gradient value.
-   */
-  virtual double compute_gradient( std::vector< long >& presyn_isis,
-    const long t_previous_update,
-    const long t_previous_trigger_spike,
-    const double kappa,
-    const bool average_gradient );
-
   /**
    * Modify Event object parameters during event delivery.
-   *
    * Some Nodes want to perform a function on an event for each
    * of their targets. An example is the poisson_generator which
    * needs to draw a random number for each target. The DSSpikeEvent,
@@ -901,45 +712,37 @@ public:
 
   /**
    * Store the number of the thread to which the node is assigned.
-   *
    * The assignment is done after node creation by the Network class.
    * @see: NodeManager::add_node().
    */
-  void set_thread( size_t );
+  void set_thread( thread );
 
   /**
    * Retrieve the number of the thread to which the node is assigned.
    */
-  size_t get_thread() const;
+  thread get_thread() const;
 
   /**
    * Store the number of the virtual process to which the node is assigned.
-   *
    * This is assigned to the node in NodeManager::add_node().
    */
-  void set_vp( size_t );
+  void set_vp( thread );
 
   /**
    * Retrieve the number of the virtual process to which the node is assigned.
    */
-  size_t get_vp() const;
+  thread get_vp() const;
 
-  /**
-   * Set the model id.
-   *
+  /** Set the model id.
    * This method is called by NodeManager::add_node() when a node is created.
    * @see get_model_id()
    */
   void set_model_id( int );
 
   /**
-   * Execute post-initialization actions in node models.
-   *
-   * This method is called by NodeManager::add_node() on a node once
-   * is fully initialized, i.e. after node ID, nc, model_id, thread, vp is
-   * set.
+   * @returns true if node is a subnet.
    */
-  void set_initialized();
+  virtual bool is_subnet() const;
 
   /**
    * @returns type of signal this node produces
@@ -991,50 +794,74 @@ public:
    * set thread local index
 
    */
-  void set_thread_lid( const size_t );
+  void set_thread_lid( const index );
 
   /**
    * get thread local index
    */
-  size_t get_thread_lid() const;
+  index get_thread_lid() const;
+
+  //! True if buffers have been initialized.
+  bool
+  buffers_initialized() const
+  {
+    return buffers_initialized_;
+  }
+
+  void
+  set_buffers_initialized( bool initialized )
+  {
+    buffers_initialized_ = initialized;
+  }
 
   /**
    * Sets the local device id.
-   *
    * Throws an error if used on a non-device node.
    * @see get_local_device_id
    */
-  virtual void set_local_device_id( const size_t lsdid );
+  virtual void set_local_device_id( const index lsdid );
 
   /**
    * Gets the local device id.
-   *
    * Throws an error if used on a non-device node.
    * @see set_local_device_id
    */
-  virtual size_t get_local_device_id() const;
+  virtual index get_local_device_id() const;
 
   /**
-   * Member of DeprecationWarning class to be used by models if parameters are
-   * deprecated.
-   */
-  DeprecationWarning deprecation_warning;
-
-  /**
-   * Set index in node collection; required by ThirdOutBuilder.
-   */
-  void set_tmp_nc_index( size_t index );
-
-  /**
-   * Return and invalidate index in node collection; required by ThirdOutBuilder.
+   * Return the number of thread siblings in SiblingContainer.
    *
-   * @note Not const since it invalidates index in node object.
+   * This method is meaningful only for SiblingContainer, for which it
+   * returns the number of siblings in the container.
+   * For all other models (including Subnet), it returns 0, which is not
+   * wrong. By defining the method in this way, we avoid many dynamic casts.
    */
-  size_t get_tmp_nc_index();
+  virtual size_t
+  num_thread_siblings() const
+  {
+    return 0;
+  }
 
+  /**
+   * Return the specified member of a SiblingContainer.
+   *
+   * This method is meaningful only for SiblingContainer, for which it
+   * returns the pointer to the indexed node in the container.
+   * For all other models (including Subnet), it returns a null pointer
+   * and throws and assertion.By defining the method in this way, we avoid
+   * many dynamic casts.
+   */
+  virtual Node* get_thread_sibling( index ) const
+  {
+    assert( false );
+    return 0;
+  }
 
 private:
-  void set_node_id_( size_t ); //!< Set global node id
+  void set_lid_( index );      //!< Set local id, relative to the parent subnet
+  void set_parent_( Subnet* ); //!< Set pointer to parent subnet.
+  void set_gid_( index );      //!< Set global node id
+  void set_subnet_index_( index ); //!< Index into node array in subnet
 
   /** Return a new dictionary datum .
    *
@@ -1047,23 +874,25 @@ private:
 
 protected:
   /**
-   * Configure state variables depending on runtime information.
-   *
-   * Overload this method if the node needs to adapt state variables prior to
-   * first simulation to runtime information, e.g., the number of incoming
-   * connections.
+   * Private function to initialize the state of a node to model defaults.
+   * This function, which must be overloaded by all derived classes, provides
+   * the implementation for initializing the state of a node to the model
+   * defaults; the state is the set of observable dynamic variables.
+   * @param Reference to model prototype object.
+   * @see Node::init_state()
+   * @note To provide a reasonable behavior during the transition to the new
+   *       scheme, init_state_() has a default implementation calling
+   *       init_dynamic_state_().
    */
-  virtual void init_state_();
+  virtual void init_state_( Node const& ) = 0;
 
   /**
-   * Configure persistent internal data structures.
-   *
-   * Let node configure persistent internal data structures, such as input
-   * buffers or ODE solvers, to runtime information prior to first simulation.
+   * Private function to initialize the buffers of a node.
+   * This function, which must be overloaded by all derived classes, provides
+   * the implementation for initializing the buffers of a node.
+   * @see Node::init_buffers()
    */
-  virtual void init_buffers_();
-
-  virtual void set_initialized_();
+  virtual void init_buffers_() = 0;
 
   Model& get_model_() const;
 
@@ -1084,43 +913,28 @@ protected:
   const ConcreteNode& downcast( const Node& );
 
 private:
-  /**
-   * Global Element ID (node ID).
-   *
-   * The node ID is unique within the network. The smallest valid node ID is 1.
-   */
-  size_t node_id_;
+  index gid_;          //!< Global element id (within network).
+  index lid_;          //!< Local element id (within parent).
+  index subnet_index_; //!< Index of node in parent's node array
 
   /**
    * Local id of this node in the thread-local vector of nodes.
    */
-  size_t thread_lid_;
+  index thread_lid_;
 
   /**
    * Model ID.
-   *
    * It is only set for actual node instances, not for instances of class Node
    * representing model prototypes. Model prototypes always have model_id_==-1.
    * @see get_model_id(), set_model_id()
    */
   int model_id_;
-
-  size_t thread_;      //!< thread node is assigned to
-  size_t vp_;          //!< virtual process node is assigned to
-  bool frozen_;        //!< node shall not be updated if true
-  bool initialized_;   //!< state and buffers have been initialized
-  bool node_uses_wfr_; //!< node uses waveform relaxation method
-
-  /**
-   * Store index in NodeCollection.
-   *
-   * @note This is only here so that the primary connection builder can inform the ThirdOutBuilder
-   * about the index of the target neuron in the targets node collection. This is required for block-based
-   * builders.
-   *
-   * @note Set by set_tmp_nc_index() and invalidated by get_tmp_nc_index().
-   */
-  size_t tmp_nc_index_;
+  Subnet* parent_;           //!< Pointer to parent.
+  thread thread_;            //!< thread node is assigned to
+  thread vp_;                //!< virtual process node is assigned to
+  bool frozen_;              //!< node shall not be updated if true
+  bool buffers_initialized_; //!< Buffers have been initialized
+  bool node_uses_wfr_;       //!< node uses waveform relaxation method
 };
 
 inline bool
@@ -1133,12 +947,6 @@ inline bool
 Node::node_uses_wfr() const
 {
   return node_uses_wfr_;
-}
-
-inline bool
-Node::supports_urbanczik_archiving() const
-{
-  return false;
 }
 
 inline void
@@ -1177,25 +985,41 @@ Node::is_proxy() const
   return false;
 }
 
-inline Name
-Node::get_element_type() const
+inline index
+Node::get_lid() const
 {
-  return names::neuron;
+  return lid_;
 }
 
-inline size_t
-Node::get_node_id() const
+inline index
+Node::get_gid() const
 {
-  return node_id_;
+  return gid_;
 }
 
+inline index
+Node::get_subnet_index() const
+{
+  return subnet_index_;
+}
 
 inline void
-Node::set_node_id_( size_t i )
+Node::set_gid_( index i )
 {
-  node_id_ = i;
+  gid_ = i;
 }
 
+inline void
+Node::set_lid_( index i )
+{
+  lid_ = i;
+}
+
+inline void
+Node::set_subnet_index_( index i )
+{
+  subnet_index_ = i;
+}
 
 inline int
 Node::get_model_id() const
@@ -1212,28 +1036,40 @@ Node::set_model_id( int i )
 inline bool
 Node::is_model_prototype() const
 {
-  return vp_ == invalid_thread;
+  return vp_ == invalid_thread_;
+}
+
+inline Subnet*
+Node::get_parent() const
+{
+  return parent_;
 }
 
 inline void
-Node::set_thread( size_t t )
+Node::set_parent_( Subnet* c )
+{
+  parent_ = c;
+}
+
+inline void
+Node::set_thread( thread t )
 {
   thread_ = t;
 }
 
-inline size_t
+inline thread
 Node::get_thread() const
 {
   return thread_;
 }
 
 inline void
-Node::set_vp( size_t vp )
+Node::set_vp( thread vp )
 {
   vp_ = vp;
 }
 
-inline size_t
+inline thread
 Node::get_vp() const
 {
   return vp_;
@@ -1249,34 +1085,16 @@ Node::downcast( const Node& n )
 }
 
 inline void
-Node::set_thread_lid( const size_t tlid )
+Node::set_thread_lid( const index tlid )
 {
   thread_lid_ = tlid;
 }
 
-inline size_t
+inline index
 Node::get_thread_lid() const
 {
   return thread_lid_;
 }
-
-inline void
-Node::set_tmp_nc_index( size_t index )
-{
-  tmp_nc_index_ = index;
-}
-
-inline size_t
-Node::get_tmp_nc_index()
-{
-  assert( tmp_nc_index_ != invalid_index );
-
-  const auto index = tmp_nc_index_;
-  tmp_nc_index_ = invalid_index;
-
-  return index;
-}
-
 
 } // namespace
 

@@ -32,33 +32,33 @@ namespace nest
 class modelrange
 {
 public:
-  modelrange( size_t model, size_t first_node_id, size_t last_node_id );
+  modelrange( index model, index first_gid, index last_gid );
   bool
-  is_in_range( size_t node_id ) const
+  is_in_range( index gid ) const
   {
-    return ( node_id >= first_node_id_ and node_id <= last_node_id_ );
+    return ( ( gid >= first_gid_ ) and ( gid <= last_gid_ ) );
   }
-  size_t
+  index
   get_model_id() const
   {
     return model_;
   }
-  size_t
-  get_first_node_id() const
+  index
+  get_first_gid() const
   {
-    return first_node_id_;
+    return first_gid_;
   }
-  size_t
-  get_last_node_id() const
+  index
+  get_last_gid() const
   {
-    return last_node_id_;
+    return last_gid_;
   }
-  void extend_range( size_t new_last_node_id );
+  void extend_range( index new_last_gid );
 
 private:
-  size_t model_;
-  size_t first_node_id_;
-  size_t last_node_id_;
+  index model_;
+  index first_gid_;
+  index last_gid_;
 };
 }
 

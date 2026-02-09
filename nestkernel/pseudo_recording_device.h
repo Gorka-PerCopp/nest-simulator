@@ -27,6 +27,9 @@
 #include <fstream>
 #include <vector>
 
+// Includes from libnestutil:
+#include "lockptr.h"
+
 // Includes from nestkernel:
 #include "device.h"
 #include "nest_types.h"
@@ -38,7 +41,7 @@
 namespace nest
 {
 
-/** @BeginDocumentation
+/*BeginDocumentation
   Name: PseudoRecordingDevice - Common properties of all pseudo-recording
                                 devices.
   Description:
@@ -53,7 +56,7 @@ namespace nest
   /stop   - Inactivation time, relative to origin.
   /origin - Reference time for start and stop.
 
-  SeeAlso: Device, StimulationDevice, RecordingDevice
+  SeeAlso: Device, StimulatingDevice, RecordingDevice
 */
 
 
@@ -81,7 +84,7 @@ class PseudoRecordingDevice : public Device
 public:
   PseudoRecordingDevice();
   PseudoRecordingDevice( const PseudoRecordingDevice& );
-  ~PseudoRecordingDevice() override
+  virtual ~PseudoRecordingDevice()
   {
   }
 
@@ -89,7 +92,7 @@ public:
    *  The argument is the time stamp of the event, and the
    *  device is active if start_ < T <= stop_.
    */
-  bool is_active( Time const& T ) const override;
+  bool is_active( Time const& T ) const;
 };
 
 inline PseudoRecordingDevice::PseudoRecordingDevice()
@@ -97,7 +100,8 @@ inline PseudoRecordingDevice::PseudoRecordingDevice()
 {
 }
 
-inline PseudoRecordingDevice::PseudoRecordingDevice( const PseudoRecordingDevice& prd )
+inline PseudoRecordingDevice::PseudoRecordingDevice(
+  const PseudoRecordingDevice& prd )
   : Device( prd )
 {
 }
@@ -112,4 +116,4 @@ PseudoRecordingDevice::is_active( Time const& T ) const
 
 } // namespace
 
-#endif /* #ifndef PSEUDO_RECORDING_DEVICE_H */
+#endif // PSEUDO_RECORDING_DEVICE_H

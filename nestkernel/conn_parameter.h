@@ -27,10 +27,12 @@
 #include <limits>
 #include <vector>
 
+// Includes from librandom:
+#include "randomdev.h"
+#include "randomgen.h"
+
 // Includes from nestkernel:
 #include "exceptions.h"
-#include "nest_datums.h"
-#include "parameter.h"
 
 // Includes from sli:
 #include "token.h"
@@ -73,10 +75,10 @@ public:
    * @param rng   random number generator pointer
    * will be ignored except for random parameters.
    */
-  virtual double value_double( size_t, RngPtr, size_t, Node* ) const = 0;
-  virtual long value_int( size_t, RngPtr, size_t, Node* ) const = 0;
+  virtual double value_double( thread, librandom::RngPtr& ) const = 0;
+  virtual long value_int( thread, librandom::RngPtr& ) const = 0;
   virtual void
-  skip( size_t, size_t ) const
+  skip( thread, size_t n_skip ) const
   {
   }
   virtual bool is_array() const = 0;
@@ -87,16 +89,11 @@ public:
     return false;
   }
 
-  virtual bool
-  provides_long() const
-  {
-    return false;
-  }
-
   virtual void
   reset() const
   {
-    throw NotImplemented( "Symmetric connections require parameters that can be reset." );
+    throw NotImplemented(
+      "Symmetric connections require parameters that can be reset." );
   }
 
   /**
@@ -111,11 +108,11 @@ public:
   }
 
   /**
-   * @param t parameter
-   * type is established by casts to all acceptedpossibilities
-   * @param nthread number of threads
-   * required to fix number pointers to the iterator (one for each thread)
-   */
+  * @param t parameter
+  * type is established by casts to all acceptedpossibilities
+  * @param nthread number of threads
+  * required to fix number pointers to the iterator (one for each thread)
+  */
   static ConnParameter* create( const Token&, const size_t );
 };
 
@@ -134,33 +131,35 @@ public:
   }
 
   double
-  value_double( size_t, RngPtr, size_t, Node* ) const override
+  value_double( thread, librandom::RngPtr& ) const
   {
     return value_;
   }
 
   long
-  value_int( size_t, RngPtr, size_t, Node* ) const override
+  value_int( thread, librandom::RngPtr& ) const
   {
-    throw KernelException( "ConnParameter calls value function with false return type." );
+    throw KernelException(
+      "ConnParameter calls value function with false return type." );
   }
 
   inline bool
-  is_array() const override
+  is_array() const
   {
     return false;
   }
 
   void
-  reset() const override
+  reset() const
   {
   }
 
   bool
-  is_scalar() const override
+  is_scalar() const
   {
     return true;
   }
+
 
 private:
   double value_;
@@ -180,36 +179,30 @@ public:
   }
 
   double
-  value_double( size_t, RngPtr, size_t, Node* ) const override
+  value_double( thread, librandom::RngPtr& ) const
   {
     return static_cast< double >( value_ );
   }
 
   long
-  value_int( size_t, RngPtr, size_t, Node* ) const override
+  value_int( thread, librandom::RngPtr& ) const
   {
     return value_;
   }
 
   inline bool
-  is_array() const override
+  is_array() const
   {
     return false;
   }
 
   void
-  reset() const override
+  reset() const
   {
   }
 
   bool
-  is_scalar() const override
-  {
-    return true;
-  }
-
-  bool
-  provides_long() const override
+  is_scalar() const
   {
     return true;
   }
@@ -237,14 +230,15 @@ private:
 class ArrayDoubleParameter : public ConnParameter
 {
 public:
-  ArrayDoubleParameter( const std::vector< double >& values, const size_t nthreads )
+  ArrayDoubleParameter( const std::vector< double >& values,
+    const size_t nthreads )
     : values_( &values )
     , next_( nthreads, values_->begin() )
   {
   }
 
   void
-  skip( size_t tid, size_t n_skip ) const override
+  skip( thread tid, size_t n_skip ) const
   {
     if ( next_[ tid ] < values_->end() )
     {
@@ -257,13 +251,13 @@ public:
   }
 
   size_t
-  number_of_values() const override
+  number_of_values() const
   {
     return values_->size();
   }
 
   double
-  value_double( size_t tid, RngPtr, size_t, Node* ) const override
+  value_double( thread tid, librandom::RngPtr& ) const
   {
     if ( next_[ tid ] != values_->end() )
     {
@@ -276,21 +270,25 @@ public:
   }
 
   long
-  value_int( size_t, RngPtr, size_t, Node* ) const override
+  value_int( thread, librandom::RngPtr& ) const
   {
-    throw KernelException( "ConnParameter calls value function with false return type." );
+    throw KernelException(
+      "ConnParameter calls value function with false return type." );
   }
 
   inline bool
-  is_array() const override
+  is_array() const
   {
     return true;
   }
 
   void
-  reset() const override
+  reset() const
   {
-    for ( std::vector< std::vector< double >::const_iterator >::iterator it = next_.begin(); it != next_.end(); ++it )
+    for ( std::vector< std::vector< double >::const_iterator >::iterator it =
+            next_.begin();
+          it != next_.end();
+          ++it )
     {
       *it = values_->begin();
     }
@@ -319,14 +317,15 @@ private:
 class ArrayIntegerParameter : public ConnParameter
 {
 public:
-  ArrayIntegerParameter( const std::vector< long >& values, const size_t nthreads )
+  ArrayIntegerParameter( const std::vector< long >& values,
+    const size_t nthreads )
     : values_( &values )
     , next_( nthreads, values_->begin() )
   {
   }
 
   void
-  skip( size_t tid, size_t n_skip ) const override
+  skip( thread tid, size_t n_skip ) const
   {
     if ( next_[ tid ] < values_->end() )
     {
@@ -339,13 +338,13 @@ public:
   }
 
   size_t
-  number_of_values() const override
+  number_of_values() const
   {
     return values_->size();
   }
 
   long
-  value_int( size_t tid, RngPtr, size_t, Node* ) const override
+  value_int( thread tid, librandom::RngPtr& ) const
   {
     if ( next_[ tid ] != values_->end() )
     {
@@ -358,7 +357,7 @@ public:
   }
 
   double
-  value_double( size_t tid, RngPtr, size_t, Node* ) const override
+  value_double( thread tid, librandom::RngPtr& ) const
   {
     if ( next_[ tid ] != values_->end() )
     {
@@ -371,21 +370,18 @@ public:
   }
 
   inline bool
-  is_array() const override
-  {
-    return true;
-  }
-
-  bool
-  provides_long() const override
+  is_array() const
   {
     return true;
   }
 
   void
-  reset() const override
+  reset() const
   {
-    for ( std::vector< std::vector< long >::const_iterator >::iterator it = next_.begin(); it != next_.end(); ++it )
+    for ( std::vector< std::vector< long >::const_iterator >::iterator it =
+            next_.begin();
+          it != next_.end();
+          ++it )
     {
       *it = values_->begin();
     }
@@ -396,33 +392,36 @@ private:
   mutable std::vector< std::vector< long >::const_iterator > next_;
 };
 
-class ParameterConnParameterWrapper : public ConnParameter
+/**
+ * Random scalar value.
+ *
+ * On each request, it returns a new value drawn from the given deviate.
+ */
+class RandomParameter : public ConnParameter
 {
 public:
-  ParameterConnParameterWrapper( const ParameterDatum&, const size_t );
+  RandomParameter( const DictionaryDatum&, const size_t );
 
-  double value_double( size_t target_thread, RngPtr rng, size_t snode_id, Node* target ) const override;
+  double
+  value_double( thread, librandom::RngPtr& rng ) const
+  {
+    return ( *rdv_ )( rng );
+  }
 
   long
-  value_int( size_t target_thread, RngPtr rng, size_t snode_id, Node* target ) const override
+  value_int( thread, librandom::RngPtr& rng ) const
   {
-    return value_double( target_thread, rng, snode_id, target );
+    return ( *rdv_ )( rng );
   }
 
   inline bool
-  is_array() const override
+  is_array() const
   {
     return false;
   }
 
-  bool
-  provides_long() const override
-  {
-    return parameter_->returns_int_only();
-  }
-
 private:
-  Parameter* parameter_;
+  librandom::RdvPtr rdv_;
 };
 
 } // namespace nest

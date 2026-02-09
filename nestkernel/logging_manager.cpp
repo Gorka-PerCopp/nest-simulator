@@ -42,16 +42,13 @@ nest::LoggingManager::LoggingManager()
 }
 
 void
-nest::LoggingManager::initialize( const bool adjust_number_of_threads_or_rng_only )
+nest::LoggingManager::initialize()
 {
-  if ( not adjust_number_of_threads_or_rng_only )
-  {
-    dict_miss_is_error_ = true;
-  }
+  dict_miss_is_error_ = true;
 }
 
 void
-nest::LoggingManager::finalize( const bool )
+nest::LoggingManager::finalize()
 {
 }
 
@@ -69,9 +66,10 @@ nest::LoggingManager::get_status( DictionaryDatum& dict )
 
 
 void
-nest::LoggingManager::register_logging_client( const deliver_logging_event_ptr callback )
+nest::LoggingManager::register_logging_client(
+  const deliver_logging_event_ptr callback )
 {
-  assert( callback );
+  assert( callback != 0 );
 
   client_callbacks_.push_back( callback );
 }
@@ -83,14 +81,19 @@ nest::LoggingManager::deliver_logging_event_( const LoggingEvent& event ) const
   {
     default_logging_callback_( event );
   }
-  for ( const auto& client_callback : client_callbacks_ )
+  std::vector< deliver_logging_event_ptr >::iterator it;
+  for ( std::vector< deliver_logging_event_ptr >::const_iterator it =
+          client_callbacks_.begin();
+        it != client_callbacks_.end();
+        ++it )
   {
-    client_callback( event );
+    ( *it )( event );
   }
 }
 
 void
-nest::LoggingManager::default_logging_callback_( const LoggingEvent& event ) const
+nest::LoggingManager::default_logging_callback_(
+  const LoggingEvent& event ) const
 {
   std::ostream* out;
 

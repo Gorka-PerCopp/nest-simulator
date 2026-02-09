@@ -32,6 +32,7 @@
 #include "doubledatum.h"
 #include "integerdatum.h"
 #include "name.h"
+#include "namedatum.h"
 #include "stringdatum.h"
 #include "tokenarray.h"
 #include "tokenutils.h"
@@ -67,13 +68,6 @@ Token::Token( unsigned long value )
 {
   p = new IntegerDatum( value );
 }
-
-#ifdef HAVE_32BIT_ARCH
-Token::Token( uint64_t value )
-{
-  p = new IntegerDatum( value );
-}
-#endif
 
 Token::Token( double value )
 {
@@ -132,6 +126,11 @@ Token::operator double() const
   return getValue< double >( *this );
 }
 
+Token::operator float() const
+{
+  return getValue< float >( *this );
+}
+
 Token::operator bool() const
 {
   return getValue< bool >( *this );
@@ -174,18 +173,17 @@ Token::pprint( std::ostream& out ) const
   }
 }
 
-std::ostream&
-operator<<( std::ostream& out, const Token& c )
+std::ostream& operator<<( std::ostream& o, const Token& c )
 {
   if ( not c )
   {
-    out << "<Null token>";
+    o << "<Null token>";
   }
   else
   {
-    c->print( out );
+    c->print( o );
   }
-  return out;
+  return o;
 }
 
 bool
@@ -201,4 +199,5 @@ Token::matches_as_string( const Token& rhs ) const
   {
     return false;
   }
+  return false;
 }

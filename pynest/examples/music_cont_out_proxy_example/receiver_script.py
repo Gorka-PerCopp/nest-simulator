@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # receiver_script.py
@@ -20,16 +20,10 @@
 # You should have received a copy of the GNU General Public License
 # along with NEST.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
-Music example receiver script
-------------------------------
-"""
-
 import sys
-from itertools import dropwhile, takewhile
-
 import music
 import numpy
+from itertools import takewhile, dropwhile
 
 setup = music.Setup()
 stoptime = setup.config("stoptime")
@@ -44,9 +38,11 @@ pin.map(data, interpolate=False)
 
 runtime = setup.runtime(timestep)
 mintime = timestep
-maxtime = stoptime + timestep
+maxtime = stoptime+timestep
 start = dropwhile(lambda t: t < mintime, runtime)
 times = takewhile(lambda t: t < maxtime, start)
 for time in times:
     val = data
-    sys.stdout.write(f"t={time}\treceiver {rank}: received {val}\n")
+    sys.stdout.write(
+        "t={}\treceiver {}: received {}\n".
+        format(time, rank, val))

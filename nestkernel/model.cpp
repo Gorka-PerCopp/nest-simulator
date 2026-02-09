@@ -52,31 +52,37 @@ Model::set_threads()
 }
 
 void
-Model::set_threads_( size_t t )
+Model::set_threads_( thread t )
 {
   for ( size_t i = 0; i < memory_.size(); ++i )
   {
-    if ( memory_[ i ].size() > 0 )
+    if ( memory_[ i ].get_instantiations() > 0 )
     {
       throw KernelException();
     }
   }
 
-  memory_.resize( t );
-  memory_.shrink_to_fit();
+  std::vector< sli::pool > tmp( t );
+  memory_.swap( tmp );
+
+  for ( size_t i = 0; i < memory_.size(); ++i )
+  {
+    init_memory_( memory_[ i ] );
+  }
 }
 
 void
-Model::reserve_additional( size_t t, size_t n )
+Model::reserve_additional( thread t, size_t s )
 {
-  assert( t < memory_.size() );
-  memory_[ t ].reserve( n );
+  assert( ( size_t ) t < memory_.size() );
+  memory_[ t ].reserve_additional( s );
 }
 
 void
 Model::clear()
 {
-  memory_.clear();
+  std::vector< sli::pool > mem;
+  memory_.swap( mem );
   set_threads_( 1 );
 }
 
@@ -86,7 +92,7 @@ Model::mem_available()
   size_t result = 0;
   for ( size_t t = 0; t < memory_.size(); ++t )
   {
-    result += memory_[ t ].capacity() - memory_[ t ].size();
+    result += memory_[ t ].available();
   }
 
   return result;
@@ -98,7 +104,7 @@ Model::mem_capacity()
   size_t result = 0;
   for ( size_t t = 0; t < memory_.size(); ++t )
   {
-    result += memory_[ t ].capacity();
+    result += memory_[ t ].get_total();
   }
 
   return result;
@@ -113,34 +119,36 @@ Model::set_status( DictionaryDatum d )
   }
   catch ( BadProperty& e )
   {
-    throw BadProperty( String::compose( "Setting status of model '%1': %2", get_name(), e.message() ) );
+    throw BadProperty( String::compose(
+      "Setting status of model '%1': %2", get_name(), e.message() ) );
   }
 }
 
 DictionaryDatum
-Model::get_status()
+Model::get_status( void )
 {
   DictionaryDatum d = get_status_();
 
   std::vector< long > tmp( memory_.size() );
   for ( size_t t = 0; t < tmp.size(); ++t )
   {
-    tmp[ t ] = memory_[ t ].size();
+    tmp[ t ] = memory_[ t ].get_instantiations();
   }
 
   ( *d )[ names::instantiations ] = Token( tmp );
-  ( *d )[ names::type_id ] = LiteralDatum( kernel().model_manager.get_node_model( type_id_ )->get_name() );
+  ( *d )[ names::type_id ] =
+    LiteralDatum( kernel().model_manager.get_model( type_id_ )->get_name() );
 
   for ( size_t t = 0; t < tmp.size(); ++t )
   {
-    tmp[ t ] = memory_[ t ].capacity();
+    tmp[ t ] = memory_[ t ].get_total();
   }
 
   ( *d )[ names::capacity ] = Token( tmp );
 
   for ( size_t t = 0; t < tmp.size(); ++t )
   {
-    tmp[ t ] = memory_[ t ].capacity() - memory_[ t ].size();
+    tmp[ t ] = memory_[ t ].available();
   }
 
   ( *d )[ names::available ] = Token( tmp );

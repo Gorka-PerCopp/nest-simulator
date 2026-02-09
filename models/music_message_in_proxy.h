@@ -35,9 +35,6 @@
 #include <string>
 #include <vector>
 
-// Includes from libnestutil:
-#include "dict_util.h"
-
 // External includes:
 #include <music.hh>
 
@@ -49,69 +46,59 @@
 #include "arraydatum.h"
 #include "dictutils.h"
 
-namespace nest
-{
-void register_music_message_in_proxy( const std::string& name );
+/*BeginDocumentation
 
-/* BeginUserDocs: device, MUSIC
+Name: music_message_in_proxy - A device which receives message strings from
+                              MUSIC.
 
-Short description
-+++++++++++++++++
-
-A device which receives message strings from MUSIC
-
-Description
-+++++++++++
-
-A ``music_message_in_proxy`` can be used to receive message strings from
+Description:
+A music_message_in_proxy can be used to receive message strings from
 remote MUSIC applications in NEST.
 
 It uses the MUSIC library to receive message strings from other
-applications. The ``music_message_in_proxy`` represents an input port to
-which MUSIC can connect a message source. The ``music_message_in_proxy``
+applications. The music_message_in_proxy represents an input port to
+which MUSIC can connect a message source. The music_message_in_proxy
 can queried using GetStatus to retrieve the messages.
 
-To clear the data array, the parameter ``n_messages`` can be set to 0.
-
-This model is only available if NEST was compiled with MUSIC.
-
-Parameters
-++++++++++
-
+Parameters:
 The following properties are available in the status dictionary:
 
-============ ======= =========================================================
- port_name   string  The name of the MUSIC input port to listen to (default:
-                     message_in)
- port_width  integer The width of the MUSIC input port
- data        array   A sub-dictionary that contains the string messages
-                     in the form of two arrays:
-                     messages      - The strings
-                     message_times - The times the messages were sent (ms)
- n_messages  integer The number of messages
- published   boolean A bool indicating if the port has been already published
-                     with MUSIC
-============ ======= =========================================================
+port_name      - The name of the MUSIC input port to listen to (default:
+                 message_in)
+port_width     - The width of the MUSIC input port
+data           - A sub-dictionary that contains the string messages
+                 in the form of two arrays:
+                 messages      - The strings
+                 message_times - The times the messages were sent (ms)
+n_messages     - The number of messages.
+published      - A bool indicating if the port has been already published
+                 with MUSIC
 
-See also
-++++++++
+The parameter port_name can be set using SetStatus. The field n_messages
+can be set to 0 to clear the data arrays.
 
-music_event_out_proxy, music_event_in_proxy, music_cont_in_proxy
+Examples:
+/music_message_in_proxy Create /mmip Set
+10 Simulate
+mmip GetStatus /data get /messages get 0 get /command Set
+(Executing command ') command join ('.) join =
+command cvx exec
 
-Examples using this model
-+++++++++++++++++++++++++
+Author: Jochen Martin Eppler
+FirstVersion: July 2010
+Availability: Only when compiled with MUSIC
 
-.. listexamples:: music_message_in_proxy
+SeeAlso: music_event_out_proxy, music_event_in_proxy, music_cont_in_proxy
+*/
 
-EndUserDocs */
-
+namespace nest
+{
 class MsgHandler : public MUSIC::MessageHandler
 {
   ArrayDatum messages;                 //!< The buffer for incoming message
   std::vector< double > message_times; //!< The buffer for incoming message
 
-  void
-  operator()( double t, void* msg, size_t size )
+  void operator()( double t, void* msg, size_t size )
   {
     message_times.push_back( t * 1000.0 );
     messages.push_back( std::string( static_cast< char* >( msg ), size ) );
@@ -123,7 +110,8 @@ public:
   {
     DictionaryDatum dict( new Dictionary );
     ( *dict )[ names::messages ] = messages;
-    ( *dict )[ names::message_times ] = DoubleVectorDatum( new std::vector< double >( message_times ) );
+    ( *dict )[ names::message_times ] =
+      DoubleVectorDatum( new std::vector< double >( message_times ) );
     ( *d )[ names::n_messages ] = messages.size();
     ( *d )[ names::data ] = dict;
   }
@@ -163,8 +151,9 @@ public:
   void set_status( const DictionaryDatum& );
 
 private:
+  void init_state_( const Node& );
   void init_buffers_();
-  void pre_run_hook();
+  void calibrate();
 
   void
   update( Time const&, const long, const long )
@@ -179,14 +168,15 @@ private:
     std::string port_name_;     //!< the name of MUSIC port to connect to
     double acceptable_latency_; //!< the acceptable latency of the port
 
-    Parameters_(); //!< Sets default parameter values
+    Parameters_();                     //!< Sets default parameter values
+    Parameters_( const Parameters_& ); //!< Recalibrate all times
 
     void get( DictionaryDatum& ) const;
 
     /**
-     * Set values from dictionary.
+     * Set values from dicitonary.
      */
-    void set( const DictionaryDatum&, State_&, Node* );
+    void set( const DictionaryDatum&, State_& );
   };
 
   // ------------------------------------------------------------
@@ -201,7 +191,7 @@ private:
 
     void get( DictionaryDatum& ) const; //!< Store current values in dictionary
     //! Set values from dictionary
-    void set( const DictionaryDatum&, const Parameters_&, Node* );
+    void set( const DictionaryDatum&, const Parameters_& );
   };
 
   // ------------------------------------------------------------
@@ -238,14 +228,14 @@ music_message_in_proxy::get_status( DictionaryDatum& d ) const
 inline void
 music_message_in_proxy::set_status( const DictionaryDatum& d )
 {
-  Parameters_ ptmp = P_;   // temporary copy in case of errors
-  ptmp.set( d, S_, this ); // throws if BadProperty
+  Parameters_ ptmp = P_; // temporary copy in case of errors
+  ptmp.set( d, S_ );     // throws if BadProperty
 
   State_ stmp = S_;
-  stmp.set( d, P_, this ); // throws if BadProperty
+  stmp.set( d, P_ ); // throws if BadProperty
 
   long nm = 0;
-  if ( updateValueParam< long >( d, names::n_messages, nm, this ) )
+  if ( updateValue< long >( d, names::n_messages, nm ) )
   {
     if ( nm == 0 )
     {

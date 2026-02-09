@@ -35,19 +35,19 @@ class OOSupportModule : public SLIModule
   class CallMemberFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   CallMemberFunction callmemberfunction;
 
 public:
-  OOSupportModule()
+  OOSupportModule( void )
   {
   }
 
-  void init( SLIInterpreter* ) override;
-  const std::string commandstring() const override;
-  const std::string name() const override;
+  void init( SLIInterpreter* );
+  const std::string commandstring( void ) const;
+  const std::string name( void ) const;
 };
 
 

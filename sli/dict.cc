@@ -24,6 +24,7 @@
 
 // C++ includes:
 #include <algorithm>
+#include <cstdlib>
 #include <iomanip>
 #include <string>
 #include <vector>
@@ -39,14 +40,12 @@ Dictionary::~Dictionary()
 {
 }
 
-const Token&
-Dictionary::operator[]( const char* n ) const
+const Token& Dictionary::operator[]( const char* n ) const
 {
   return operator[]( Name( n ) );
 }
 
-Token&
-Dictionary::operator[]( const char* n )
+Token& Dictionary::operator[]( const char* n )
 {
   return operator[]( Name( n ) );
 }
@@ -90,10 +89,11 @@ Dictionary::info( std::ostream& out ) const
         << "Value" << std::endl;
     out << "--------------------------------------------------" << std::endl;
 
-    for ( DataVec::const_iterator where = data.begin(); where != data.end(); ++where )
+    for ( DataVec::const_iterator where = data.begin(); where != data.end();
+          ++where )
     {
-      out << std::setw( 25 ) << where->first << std::setw( 20 ) << where->second->gettypename() << where->second
-          << std::endl;
+      out << std::setw( 25 ) << where->first << std::setw( 20 )
+          << where->second->gettypename() << where->second << std::endl;
     }
     out << "--------------------------------------------------" << std::endl;
   }
@@ -111,7 +111,8 @@ Dictionary::add_dict( const std::string& target, SLIInterpreter& i )
   Token d = i.baselookup( Name( target ) );
   targetdict = getValue< DictionaryDatum >( d );
 
-  for ( TokenMap::const_iterator it = TokenMap::begin(); it != TokenMap::end(); ++it )
+  for ( TokenMap::const_iterator it = TokenMap::begin(); it != TokenMap::end();
+        ++it )
   {
     if ( not targetdict->known( it->first ) )
     {
@@ -144,7 +145,8 @@ Dictionary::remove_dict( const std::string& target, SLIInterpreter& i )
   Token d = i.baselookup( Name( target ) );
   targetdict = getValue< DictionaryDatum >( d );
 
-  for ( TokenMap::const_iterator it = TokenMap::begin(); it != TokenMap::end(); ++it )
+  for ( TokenMap::const_iterator it = TokenMap::begin(); it != TokenMap::end();
+        ++it )
   {
     TokenMap::iterator tgt_it = targetdict->find( it->first );
     if ( tgt_it != targetdict->end() )
@@ -183,7 +185,8 @@ Dictionary::all_accessed_( std::string& missed, std::string prefix ) const
   missed = "";
 
   // build list of all non-accessed Token names
-  for ( TokenMap::const_iterator it = TokenMap::begin(); it != TokenMap::end(); ++it )
+  for ( TokenMap::const_iterator it = TokenMap::begin(); it != TokenMap::end();
+        ++it )
   {
     if ( not it->second.accessed() )
     {
@@ -205,8 +208,7 @@ Dictionary::all_accessed_( std::string& missed, std::string prefix ) const
   return missed.empty();
 }
 
-std::ostream&
-operator<<( std::ostream& out, const Dictionary& d )
+std::ostream& operator<<( std::ostream& out, const Dictionary& d )
 {
   out << "<<";
 

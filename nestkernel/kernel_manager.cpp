@@ -21,61 +21,44 @@
  */
 
 #include "kernel_manager.h"
-#include "stopwatch_impl.h"
 
-nest::KernelManager* nest::KernelManager::kernel_manager_instance_ = nullptr;
+nest::KernelManager* nest::KernelManager::kernel_manager_instance_ = 0;
 
 void
 nest::KernelManager::create_kernel_manager()
 {
-#pragma omp master
+#pragma omp critical( create_kernel_manager )
   {
-    if ( not kernel_manager_instance_ )
+    if ( kernel_manager_instance_ == 0 )
     {
       kernel_manager_instance_ = new KernelManager();
       assert( kernel_manager_instance_ );
     }
   }
-#pragma omp barrier
 }
 
 void
 nest::KernelManager::destroy_kernel_manager()
 {
   kernel_manager_instance_->logging_manager.set_logging_level( M_QUIET );
+  kernel_manager_instance_->finalize();
   delete kernel_manager_instance_;
 }
 
 nest::KernelManager::KernelManager()
-  : fingerprint_( 0 )
-  , logging_manager()
+  : logging_manager()
+  , io_manager()
   , mpi_manager()
   , vp_manager()
-  , module_manager()
-  , random_manager()
+  , rng_manager()
   , simulation_manager()
   , modelrange_manager()
   , connection_manager()
   , sp_manager()
   , event_delivery_manager()
-  , io_manager()
   , model_manager()
   , music_manager()
   , node_manager()
-  , managers( { &logging_manager,
-      &mpi_manager,
-      &vp_manager,
-      &module_manager,
-      &random_manager,
-      &simulation_manager,
-      &modelrange_manager,
-      &connection_manager,
-      &sp_manager,
-      &event_delivery_manager,
-      &io_manager,
-      &model_manager,
-      &music_manager,
-      &node_manager } )
   , initialized_( false )
 {
 }
@@ -87,52 +70,66 @@ nest::KernelManager::~KernelManager()
 void
 nest::KernelManager::initialize()
 {
-  for ( auto& manager : managers )
-  {
-    manager->initialize( /* adjust_number_of_threads_or_rng_only */ false );
-  }
+  logging_manager.initialize(); // must come first so others can log
+  io_manager.initialize();      // independent of others
 
-  sw_omp_synchronization_construction_.reset();
-  sw_omp_synchronization_simulation_.reset();
-  sw_mpi_synchronization_.reset();
+  mpi_manager.initialize(); // set up inter-process communication
+  vp_manager.initialize();  // set up threads
 
-  ++fingerprint_;
+  // invariant: process infrastructure (MPI, threads) in place
+
+  rng_manager.initialize(); // depends on number of VPs
+
+  // invariant: supporting managers set up
+
+  // "Core kernel managers" follow
+  simulation_manager.initialize(); // independent of others
+  modelrange_manager.initialize(); // independent of others
+  model_manager.initialize();      // depends on number of threads
+  // prerequisites:
+  //   - vp_manager for number of threads
+  //   - modelmanager for number of prototypes
+  connection_manager.initialize();
+  sp_manager.initialize();
+
+  // prerequisites:
+  //   - min_delay/max_delay available (connection_manager)
+  //   - clock initialized (simulation_manager)
+  event_delivery_manager.initialize();
+
+  music_manager.initialize();
+
+  // prerequisites:
+  //   - modelrange_manager initialized
+  //   - model_manager for pristine models
+  //   - vp_manager for number of threads
+  node_manager.initialize(); // must come last
+
   initialized_ = true;
-  FULL_LOGGING_ONLY( dump_.open(
-    String::compose( "dump_%1_%2.log", mpi_manager.get_num_processes(), mpi_manager.get_rank() ).c_str() ); )
-}
-
-void
-nest::KernelManager::prepare()
-{
-  for ( auto& manager : managers )
-  {
-    manager->prepare();
-  }
-
-  sw_omp_synchronization_simulation_.reset();
-  sw_mpi_synchronization_.reset();
-}
-
-void
-nest::KernelManager::cleanup()
-{
-  for ( auto&& m_it = managers.rbegin(); m_it != managers.rend(); ++m_it )
-  {
-    ( *m_it )->cleanup();
-  }
 }
 
 void
 nest::KernelManager::finalize()
 {
-  FULL_LOGGING_ONLY( dump_.close(); )
-
-  for ( auto&& m_it = managers.rbegin(); m_it != managers.rend(); ++m_it )
-  {
-    ( *m_it )->finalize( /* adjust_number_of_threads_or_rng_only */ false );
-  }
   initialized_ = false;
+
+  // reverse order of calls as in initialize()
+  node_manager.finalize();
+  music_manager.finalize();
+  event_delivery_manager.finalize();
+  sp_manager.finalize();
+  connection_manager.finalize();
+  model_manager.finalize();
+  modelrange_manager.finalize();
+  simulation_manager.finalize();
+
+  rng_manager.finalize();
+
+  vp_manager.finalize();
+  mpi_manager.finalize();
+
+  io_manager.finalize();
+  logging_manager.finalize();
 }
 
 void
@@ -143,79 +140,69 @@ nest::KernelManager::reset()
 }
 
 void
-nest::KernelManager::change_number_of_threads( size_t new_num_threads )
+nest::KernelManager::change_num_threads( size_t num_threads )
 {
-  // Inputs are checked in VPManager::set_status().
-  // Just double check here that all values are legal.
-  assert( node_manager.size() == 0 );
-  assert( not connection_manager.get_user_set_delay_extrema() );
-  assert( not simulation_manager.has_been_simulated() );
-  assert( not sp_manager.is_structural_plasticity_enabled() or new_num_threads == 1 );
+  node_manager.finalize();
+  connection_manager.finalize();
+  model_manager.finalize();
+  modelrange_manager.finalize();
+  rng_manager.finalize();
 
-  // Finalize in reverse order of initialization with old thread number set
-  for ( auto mgr_it = managers.rbegin(); mgr_it != managers.rend(); ++mgr_it )
-  {
-    ( *mgr_it )->finalize( /* adjust_number_of_threads_or_rng_only */ true );
-  }
+  vp_manager.set_num_threads( num_threads );
 
-  vp_manager.set_num_threads( new_num_threads );
-
-  // Initialize in original order with new number of threads set
-  for ( auto& manager : managers )
-  {
-    manager->initialize( /* adjust_number_of_threads_or_rng_only */ true );
-  }
-
-  // Finalizing deleted all register components. Now that all infrastructure
-  // is in place again, we can tell modules to re-register the components
-  // they provide.
-  module_manager.reinitialize_dynamic_modules();
-
-  // Prepare timers and set the number of threads for multi-threaded timers
-  kernel().simulation_manager.reset_timers_for_preparation();
-  kernel().simulation_manager.reset_timers_for_dynamics();
-  kernel().event_delivery_manager.reset_timers_for_preparation();
-  kernel().event_delivery_manager.reset_timers_for_dynamics();
-
-  sw_omp_synchronization_construction_.reset();
-  sw_omp_synchronization_simulation_.reset();
-  sw_mpi_synchronization_.reset();
+  rng_manager.initialize();
+  // independent of threads, but node_manager needs it reset
+  modelrange_manager.initialize();
+  model_manager.initialize();
+  connection_manager.initialize();
+  event_delivery_manager.initialize();
+  music_manager.initialize();
+  node_manager.initialize();
 }
 
 void
 nest::KernelManager::set_status( const DictionaryDatum& dict )
 {
   assert( is_initialized() );
+  logging_manager.set_status( dict );
+  io_manager.set_status( dict );
 
-  for ( auto& manager : managers )
-  {
-    manager->set_status( dict );
-  }
+  mpi_manager.set_status( dict );
+  vp_manager.set_status( dict );
+
+  // set RNGs --- MUST come after n_threads_ is updated
+  rng_manager.set_status( dict );
+  simulation_manager.set_status( dict );
+  modelrange_manager.set_status( dict );
+  model_manager.set_status( dict );
+  connection_manager.set_status( dict );
+  sp_manager.set_status( dict );
+
+  event_delivery_manager.set_status( dict );
+  music_manager.set_status( dict );
+
+  node_manager.set_status( dict ); // has to be called last
 }
 
 void
 nest::KernelManager::get_status( DictionaryDatum& dict )
 {
   assert( is_initialized() );
+  logging_manager.get_status( dict );
+  io_manager.get_status( dict );
 
-  for ( auto& manager : managers )
-  {
-    manager->get_status( dict );
-  }
+  mpi_manager.get_status( dict );
+  vp_manager.get_status( dict );
 
-  sw_omp_synchronization_construction_.get_status(
-    dict, names::time_omp_synchronization_construction, names::time_omp_synchronization_construction_cpu );
-  sw_omp_synchronization_simulation_.get_status(
-    dict, names::time_omp_synchronization_simulation, names::time_omp_synchronization_simulation_cpu );
-  sw_mpi_synchronization_.get_status( dict, names::time_mpi_synchronization, names::time_mpi_synchronization_cpu );
-}
+  rng_manager.get_status( dict );
+  simulation_manager.get_status( dict );
+  modelrange_manager.get_status( dict );
+  model_manager.get_status( dict );
+  connection_manager.get_status( dict );
+  sp_manager.get_status( dict );
 
-void
-nest::KernelManager::write_to_dump( const std::string& msg )
-{
-#pragma omp critical
-  // In critical section to avoid any garbling of output.
-  {
-    dump_ << msg << std::endl << std::flush;
-  }
+  event_delivery_manager.get_status( dict );
+  music_manager.get_status( dict );
+
+  node_manager.get_status( dict );
 }

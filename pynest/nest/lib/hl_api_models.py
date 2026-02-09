@@ -23,71 +23,58 @@
 Functions for model handling
 """
 
-from ..ll_api import check_stack, spp, sps, sr
-from .hl_api_helper import (
-    deprecated,
-    is_iterable,
-    is_literal,
-    model_deprecation_warning,
-)
-from .hl_api_simulation import GetKernelStatus
-from .hl_api_types import to_json
-
-__all__ = [
-    "ConnectionRules",
-    "CopyModel",
-    "GetDefaults",
-    "Models",
-    "SetDefaults",
-]
+from .hl_api_helper import *
 
 
 @check_stack
-@deprecated("nest.node_models or nest.synapse_models")
 def Models(mtype="all", sel=None):
-    r"""Return a tuple of neuron, device, or synapse model names.
+    """Return a tuple of all available model (neurons, devices and
+    synapses) names, sorted by name.
 
     Parameters
     ----------
     mtype : str, optional
-        Use ``mtype='nodes'`` to only get neuron and device models,
-        or ``mtype='synapses'`` to only get synapse models.
+        Use mtype='nodes' to only see neuron and device models,
+        or mtype='synapses' to only see synapse models.
     sel : str, optional
-        Filter results and only return models containing ``sel``.
+        String used to filter the result list and only return models
+        containing it.
 
     Returns
     -------
-    tuple
-        Available model names, sorted by name
+    tuple:
+        Available model names
+
+    Notes
+    -----
+    - Synapse model names ending with '_hpc' provide minimal memory
+      requirements by using thread-local target neuron IDs and fixing
+      the `rport` to 0.
+    - Synapse model names ending with '_lbl' allow to assign an individual
+      integer label (`synapse_label`) to created synapses at the cost
+      of increased memory requirements.
 
     Raises
     ------
     ValueError
         Description
-
-    Notes
-    -----
-    - Synapse model names ending in ``_hpc`` require less memory because of
-      thread-local indices for target neuron IDs and fixed ``rport``\s of 0.
-    - Synapse model names ending in ``_lbl`` allow to assign an integer label
-      (``synapse_label``) to each individual synapse, at the cost of increased
-      memory requirements.
-
     """
 
     if mtype not in ("all", "nodes", "synapses"):
-        raise ValueError("mtype has to be one of 'all', 'nodes', or 'synapses'")
+        raise ValueError("type has to be one of 'all', 'nodes' or 'synapses'")
 
     models = []
 
     if mtype in ("all", "nodes"):
-        models += GetKernelStatus("node_models")
+        sr("modeldict")
+        models += spp().keys()
 
     if mtype in ("all", "synapses"):
-        models += GetKernelStatus("synapse_models")
+        sr("synapsedict")
+        models += spp().keys()
 
     if sel is not None:
-        models = [x for x in models if sel in x]
+        models = [x for x in models if x.find(sel) >= 0]
 
     models.sort()
 
@@ -95,23 +82,24 @@ def Models(mtype="all", sel=None):
 
 
 @check_stack
-@deprecated("nest.connection_rules")
 def ConnectionRules():
-    """Return a tuple of all available connection rules, sorted by name.
+    """Return a typle of all available connection rules, sorted by name.
 
     Returns
     -------
-    tuple
-        Available connection rules, sorted by name
+    tuple:
+        Available connection rules
 
     """
 
-    return tuple(sorted(GetKernelStatus("connection_rules")))
+    sr('connruledict')
+    return tuple(sorted(spp().keys()))
 
 
 @check_stack
 def SetDefaults(model, params, val=None):
-    """Set defaults for the given model or recording backend.
+    """Set the default parameters of the given model to the values
+    specified in the params dictionary.
 
     New default values are used for all subsequently created instances
     of the model.
@@ -119,12 +107,12 @@ def SetDefaults(model, params, val=None):
     Parameters
     ----------
     model : str
-        Name of the model or recording backend
+        Name of the model
     params : str or dict
-        Dictionary of new default parameter values
+        Dictionary of new default values. If val is given, this has to
+        be the name of a model property as a str.
     val : str, optional
-        If given, ``params`` has to be the name of a parameter.
-
+        If given, params has to be the name of a model property.
     """
 
     if val is not None:
@@ -132,60 +120,56 @@ def SetDefaults(model, params, val=None):
             params = {params: val}
 
     sps(params)
-    sr("/{0} exch SetDefaults".format(model))
+    sr('/{0} exch SetDefaults'.format(model))
 
 
 @check_stack
-def GetDefaults(model, keys=None, output=""):
-    """Return defaults of the given model or recording backend.
+def GetDefaults(model, keys=None):
+    """Return a dictionary with the default parameters of the given
+    model, specified by a string.
 
     Parameters
     ----------
     model : str
-        Name of the model or recording backend
+        Name of the model
     keys : str or list, optional
-        String or a list of strings naming model properties. `GetDefaults` then
+        String or a list of strings naming model properties. GetDefaults then
         returns a single value or a list of values belonging to the keys
         given.
-    output : str, optional
-        Whether the returned data should be in a format
-        (``output='json'``). Default is ''.
 
     Returns
     -------
-    dict
-        A dictionary of default parameters.
-    type
-        If keys is a string, the corrsponding default parameter is returned.
-    list
+    dict:
+        All default parameters
+    type:
+        If keys is a string, the corrsponding default parameter is returned
+    list:
         If keys is a list of strings, a list of corrsponding default parameters
-        is returned.
-    str :
-        If `output` is ``json``, returns parameters in JSON format.
+        is returned
 
     Raises
     ------
     TypeError
 
+    Examples
+    --------
+    GetDefaults('iaf_psc_alpha','V_m') -> -70.0
+    GetDefaults('iaf_psc_alpha',['V_m', 'model']) -> [-70.0, 'iaf_psc_alpha']
     """
 
     if keys is None:
         cmd = "/{0} GetDefaults".format(model)
     elif is_literal(keys):
-        cmd = "/{0} GetDefaults /{1} get".format(model, keys)
+        cmd = '/{0} GetDefaults /{1} get'.format(model, keys)
     elif is_iterable(keys):
         keys_str = " ".join("/{0}".format(x) for x in keys)
-        cmd = "/{0} GetDefaults  [ {1} ] {{ 1 index exch get }}".format(model, keys_str) + " Map exch pop"
+        cmd = "/{0} GetDefaults  [ {1} ] {{ 1 index exch get }}"\
+              .format(model, keys_str) + " Map exch pop"
     else:
         raise TypeError("keys should be either a string or an iterable")
 
     sr(cmd)
-    result = spp()
-
-    if output == "json":
-        result = to_json(result)
-
-    return result
+    return spp()
 
 
 @check_stack
@@ -197,11 +181,10 @@ def CopyModel(existing, new, params=None):
     existing : str
         Name of existing model
     new : str
-        Name of the copied model
+        Name of the copy of the existing model
     params : dict, optional
         Default parameters assigned to the copy. Not provided parameters are
         taken from the existing model.
-
     """
 
     model_deprecation_warning(existing)

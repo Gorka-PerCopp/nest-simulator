@@ -35,65 +35,65 @@ namespace nest
 
 ModelRangeManager::ModelRangeManager()
   : modelranges_()
-  , first_node_id_( 0 )
-  , last_node_id_( 0 )
+  , first_gid_( 0 )
+  , last_gid_( 0 )
 {
 }
 
 void
-ModelRangeManager::initialize( const bool )
+ModelRangeManager::initialize()
 {
 }
 
 void
-ModelRangeManager::finalize( const bool )
+ModelRangeManager::finalize()
 {
   modelranges_.clear();
-  first_node_id_ = 0;
-  last_node_id_ = 0;
+  first_gid_ = 0;
+  last_gid_ = 0;
 }
 
 void
-ModelRangeManager::add_range( size_t model, size_t first_node_id, size_t last_node_id )
+ModelRangeManager::add_range( index model, index first_gid, index last_gid )
 {
   if ( not modelranges_.empty() )
   {
-    assert( first_node_id == last_node_id_ + 1 );
+    assert( first_gid == last_gid_ + 1 );
     if ( model == modelranges_.back().get_model_id() )
     {
-      modelranges_.back().extend_range( last_node_id );
+      modelranges_.back().extend_range( last_gid );
     }
     else
     {
-      modelranges_.push_back( modelrange( model, first_node_id, last_node_id ) );
+      modelranges_.push_back( modelrange( model, first_gid, last_gid ) );
     }
   }
   else
   {
-    modelranges_.push_back( modelrange( model, first_node_id, last_node_id ) );
-    first_node_id_ = first_node_id;
+    modelranges_.push_back( modelrange( model, first_gid, last_gid ) );
+    first_gid_ = first_gid;
   }
 
-  last_node_id_ = last_node_id;
+  last_gid_ = last_gid;
 }
 
-size_t
-ModelRangeManager::get_model_id( size_t node_id ) const
+index
+ModelRangeManager::get_model_id( index gid ) const
 {
-  if ( not is_in_range( node_id ) )
+  if ( not is_in_range( gid ) )
   {
-    throw UnknownNode( static_cast< long >( node_id ) );
+    throw UnknownNode( gid );
   }
 
-  long left = -1;
-  long right = static_cast< long >( modelranges_.size() );
+  int left = -1;
+  int right = modelranges_.size();
   assert( right >= 1 );
 
   // to ensure thread-safety, use local range_idx
-  long range_idx = right / 2; // start in center
-  while ( not modelranges_[ range_idx ].is_in_range( node_id ) )
+  size_t range_idx = right / 2; // start in center
+  while ( not modelranges_[ range_idx ].is_in_range( gid ) )
   {
-    if ( node_id > modelranges_[ range_idx ].get_last_node_id() )
+    if ( gid > modelranges_[ range_idx ].get_last_gid() )
     {
       left = range_idx;
       range_idx += ( right - range_idx ) / 2;
@@ -104,35 +104,55 @@ ModelRangeManager::get_model_id( size_t node_id ) const
       range_idx -= ( range_idx - left ) / 2;
     }
     assert( left + 1 < right );
-    assert( range_idx >= 0 );
-    assert( static_cast< size_t >( range_idx ) < modelranges_.size() );
+    assert( range_idx < modelranges_.size() );
   }
   return modelranges_[ range_idx ].get_model_id();
 }
 
 nest::Model*
-nest::ModelRangeManager::get_model_of_node_id( size_t node_id )
+nest::ModelRangeManager::get_model_of_gid( index gid )
 {
-  return kernel().model_manager.get_node_model( get_model_id( node_id ) );
+  return kernel().model_manager.get_model( get_model_id( gid ) );
+}
+
+bool
+ModelRangeManager::model_in_use( index i ) const
+{
+  bool found = false;
+
+  for ( std::vector< modelrange >::const_iterator it = modelranges_.begin();
+        it != modelranges_.end();
+        ++it )
+  {
+    if ( it->get_model_id() == i )
+    {
+      found = true;
+      break;
+    }
+  }
+
+  return found;
 }
 
 const modelrange&
-ModelRangeManager::get_contiguous_node_id_range( size_t node_id ) const
+ModelRangeManager::get_contiguous_gid_range( index gid ) const
 {
-  if ( not is_in_range( node_id ) )
+  if ( not is_in_range( gid ) )
   {
-    throw UnknownNode( node_id );
+    throw UnknownNode( gid );
   }
 
-  for ( std::vector< modelrange >::const_iterator it = modelranges_.begin(); it != modelranges_.end(); ++it )
+  for ( std::vector< modelrange >::const_iterator it = modelranges_.begin();
+        it != modelranges_.end();
+        ++it )
   {
-    if ( it->is_in_range( node_id ) )
+    if ( it->is_in_range( gid ) )
     {
       return ( *it );
     }
   }
 
-  throw UnknownNode( node_id );
+  throw UnknownNode( gid );
 }
 
 } // namespace nest

@@ -28,7 +28,6 @@
 
 // C++ includes:
 #include <cmath>
-#include <cstdlib>
 
 // Includes from nestkernel:
 #include "nest_types.h"
@@ -37,73 +36,35 @@
 namespace nest
 {
 
+BOOST_AUTO_TEST_SUITE( test_target_fields )
+
 /**
- * Test cases: Target data type object
+ * Tests whether values stored in Target objects via bitmasks are read
+ * correctly.
  */
-BOOST_AUTO_TEST_SUITE( test_target_data_type_object )
-
-// Run several trials with random data
-constexpr int NUM_TEST_TRIALS = 50U;
-
-BOOST_AUTO_TEST_CASE( test_target_object_type_size )
+BOOST_AUTO_TEST_CASE( test_write_read )
 {
-  // Test the size of the Target data type object: must be 64-bit!
-  Target target_id_testSize;
-  BOOST_REQUIRE( sizeof( target_id_testSize ) == 8U );
-}
+  Target target;
 
-BOOST_AUTO_TEST_CASE( test_target_object_type_constructor )
-{
-  std::srand( 1234567 );
-  for ( int i = 0; i < NUM_TEST_TRIALS; ++i )
+  for ( size_t trial = 0; trial < 50; ++trial )
   {
-    // tid and rank can take on all values up to MAX_{TID,RANK}
-    // syn_id and lcid can only take values up to MAX_{SYN_ID,LCID}-1
-    const size_t tid = std::rand() % ( MAX_TID + 1 );
-    const size_t rank = std::rand() % ( MAX_RANK + 1 );
-    const synindex syn_id = std::rand() % MAX_SYN_ID;
-    const size_t lcid = std::rand() % MAX_LCID;
+    const thread tid = std::rand() % 1024;
+    const thread rank = std::rand() % 1048576;
+    const synindex syn_id = std::rand() % 64;
+    const index lcid = std::rand() % 134217728;
+    const bool is_processed = static_cast< bool >( std::rand() % 2 );
 
-    Target target_id_testInit( tid, rank, syn_id, lcid );
+    target.set_tid( tid );
+    target.set_rank( rank );
+    target.set_syn_id( syn_id );
+    target.set_lcid( lcid );
+    target.set_is_processed( is_processed );
 
-    BOOST_REQUIRE( target_id_testInit.get_tid() == tid );
-    BOOST_REQUIRE( target_id_testInit.get_rank() == rank );
-    BOOST_REQUIRE( target_id_testInit.get_syn_id() == syn_id );
-    BOOST_REQUIRE( target_id_testInit.get_lcid() == lcid );
-    BOOST_REQUIRE( target_id_testInit.get_status() == TARGET_ID_UNPROCESSED );
-  }
-}
-
-BOOST_AUTO_TEST_CASE( test_target_object_type_set_get )
-{
-  std::srand( 2345678 );
-  Target target_id_testSetGet;
-  for ( int i = 0; i < NUM_TEST_TRIALS; ++i )
-  {
-    // tid and rank can take on all values up to MAX_{TID,RANK}
-    // syn_id and lcid can only take values up to MAX_{SYN_ID,LCID}-1
-    const size_t tid = std::rand() % ( MAX_TID + 1 );
-    const size_t rank = std::rand() % ( MAX_RANK + 1 );
-    const synindex syn_id = std::rand() % MAX_SYN_ID;
-    const size_t lcid = std::rand() % MAX_LCID;
-
-    enum_status_target_id status_target_id = TARGET_ID_UNPROCESSED;
-    if ( static_cast< bool >( std::rand() % 2 ) )
-    {
-      status_target_id = TARGET_ID_PROCESSED;
-    }
-
-    target_id_testSetGet.set_tid( tid );
-    target_id_testSetGet.set_rank( rank );
-    target_id_testSetGet.set_syn_id( syn_id );
-    target_id_testSetGet.set_lcid( lcid );
-    target_id_testSetGet.set_status( status_target_id );
-
-    BOOST_REQUIRE( target_id_testSetGet.get_tid() == tid );
-    BOOST_REQUIRE( target_id_testSetGet.get_rank() == rank );
-    BOOST_REQUIRE( target_id_testSetGet.get_syn_id() == syn_id );
-    BOOST_REQUIRE( target_id_testSetGet.get_lcid() == lcid );
-    BOOST_REQUIRE( target_id_testSetGet.get_status() == status_target_id );
+    BOOST_REQUIRE( target.get_tid() == tid );
+    BOOST_REQUIRE( target.get_rank() == rank );
+    BOOST_REQUIRE( target.get_syn_id() == syn_id );
+    BOOST_REQUIRE( target.get_lcid() == lcid );
+    BOOST_REQUIRE( target.is_processed() == is_processed );
   }
 }
 

@@ -87,13 +87,13 @@ private:
 
 
     void
-    addreference()
+    addreference( void )
     {
       ++refs;
     }
 
     void
-    removereference()
+    removereference( void )
     {
       if ( --refs == 0 )
       {
@@ -105,8 +105,8 @@ private:
       : refs( 1 )
       , type( n )
       , func()
-      , alt( nullptr )
-      , next( nullptr )
+      , alt( NULL )
+      , next( NULL )
     {
     }
 
@@ -114,18 +114,18 @@ private:
       : refs( 1 )
       , type( n )
       , func( f )
-      , alt( nullptr )
-      , next( nullptr )
+      , alt( NULL )
+      , next( NULL )
     {
     }
 
     ~TypeNode()
     {
-      if ( next )
+      if ( next != NULL )
       {
         next->removereference();
       }
-      if ( alt )
+      if ( alt != NULL )
       {
         alt->removereference();
       }
@@ -148,7 +148,7 @@ public:
   }
 
   TypeTrie( const TokenArray& ta )
-    : root( nullptr )
+    : root( NULL )
   {
     root = newnode( ta );
   }
@@ -156,7 +156,7 @@ public:
   TypeTrie( const TypeTrie& tt )
     : root( tt.root )
   {
-    if ( root )
+    if ( root != NULL )
     {
       root->addreference();
     }
@@ -185,7 +185,7 @@ public:
 
 inline TypeTrie::~TypeTrie()
 {
-  if ( root )
+  if ( root != NULL )
   {
     root->removereference();
   }
@@ -199,7 +199,7 @@ inline TypeTrie::~TypeTrie()
 inline bool
 TypeTrie::equals( const Name& t1, const Name& t2 ) const
 {
-  return ( t1 == t2 or t2 == sli::any or t1 == sli::any );
+  return ( t1 == t2 || t2 == sli::any || t1 == sli::any );
 }
 
 inline const Token&
@@ -233,7 +233,7 @@ TypeTrie::lookup( const TokenStack& st ) const
 
     while ( not equals( find_type, pos->type ) )
     {
-      if ( pos->alt )
+      if ( pos->alt != NULL )
       {
         pos = pos->alt;
       }
@@ -257,8 +257,7 @@ TypeTrie::lookup( const TokenStack& st ) const
 }
 
 
-inline bool
-TypeTrie::operator==( const TypeTrie& tt ) const
+inline bool TypeTrie::operator==( const TypeTrie& tt ) const
 {
   return ( root == tt.root );
 }

@@ -26,29 +26,18 @@
 #include "event_delivery_manager_impl.h"
 #include "exceptions.h"
 #include "kernel_manager.h"
-#include "nest_impl.h"
-
-// Includes from libnestutil:
-#include "dict_util.h"
 
 // Includes from sli:
 #include "dict.h"
 #include "dictutils.h"
 #include "doubledatum.h"
 
-void
-nest::register_poisson_generator( const std::string& name )
-{
-  register_node_model< poisson_generator >( name );
-}
-
-
 /* ----------------------------------------------------------------
  * Default constructors defining default parameter
  * ---------------------------------------------------------------- */
 
 nest::poisson_generator::Parameters_::Parameters_()
-  : rate_( 0.0 ) // spks/s
+  : rate_( 0.0 ) // pA
 {
 }
 
@@ -64,9 +53,9 @@ nest::poisson_generator::Parameters_::get( DictionaryDatum& d ) const
 }
 
 void
-nest::poisson_generator::Parameters_::set( const DictionaryDatum& d, Node* node )
+nest::poisson_generator::Parameters_::set( const DictionaryDatum& d )
 {
-  updateValueParam< double >( d, names::rate, rate_, node );
+  updateValue< double >( d, names::rate, rate_ );
   if ( rate_ < 0 )
   {
     throw BadProperty( "The rate cannot be negative." );
@@ -79,13 +68,15 @@ nest::poisson_generator::Parameters_::set( const DictionaryDatum& d, Node* node 
  * ---------------------------------------------------------------- */
 
 nest::poisson_generator::poisson_generator()
-  : StimulationDevice()
+  : DeviceNode()
+  , device_()
   , P_()
 {
 }
 
 nest::poisson_generator::poisson_generator( const poisson_generator& n )
-  : StimulationDevice( n )
+  : DeviceNode( n )
+  , device_( n.device_ )
   , P_( n.P_ )
 {
 }
@@ -96,25 +87,27 @@ nest::poisson_generator::poisson_generator( const poisson_generator& n )
  * ---------------------------------------------------------------- */
 
 void
-nest::poisson_generator::init_state_()
+nest::poisson_generator::init_state_( const Node& proto )
 {
-  StimulationDevice::init_state();
+  const poisson_generator& pr = downcast< poisson_generator >( proto );
+
+  device_.init_state( pr.device_ );
 }
 
 void
 nest::poisson_generator::init_buffers_()
 {
-  StimulationDevice::init_buffers();
+  device_.init_buffers();
 }
 
 void
-nest::poisson_generator::pre_run_hook()
+nest::poisson_generator::calibrate()
 {
-  StimulationDevice::pre_run_hook();
+  device_.calibrate();
 
-  // rate_ is in spks/s, dt in ms, so we have to convert from s to ms
-  poisson_distribution::param_type param( Time::get_resolution().get_ms() * P_.rate_ * 1e-3 );
-  V_.poisson_dist_.param( param );
+  // rate_ is in Hz, dt in ms, so we have to convert from s to ms
+  V_.poisson_dev_.set_lambda(
+    Time::get_resolution().get_ms() * P_.rate_ * 1e-3 );
 }
 
 
@@ -125,6 +118,10 @@ nest::poisson_generator::pre_run_hook()
 void
 nest::poisson_generator::update( Time const& T, const long from, const long to )
 {
+  assert(
+    to >= 0 && ( delay ) from < kernel().connection_manager.get_min_delay() );
+  assert( from < to );
+
   if ( P_.rate_ <= 0 )
   {
     return;
@@ -132,7 +129,7 @@ nest::poisson_generator::update( Time const& T, const long from, const long to )
 
   for ( long lag = from; lag < to; ++lag )
   {
-    if ( not StimulationDevice::is_active( T + Time::step( lag ) ) )
+    if ( not device_.is_active( T + Time::step( lag ) ) )
     {
       continue; // no spike at this lag
     }
@@ -145,36 +142,12 @@ nest::poisson_generator::update( Time const& T, const long from, const long to )
 void
 nest::poisson_generator::event_hook( DSSpikeEvent& e )
 {
-  long n_spikes = V_.poisson_dist_( get_vp_specific_rng( get_thread() ) );
+  librandom::RngPtr rng = kernel().rng_manager.get_rng( get_thread() );
+  long n_spikes = V_.poisson_dev_.ldev( rng );
 
   if ( n_spikes > 0 ) // we must not send events with multiplicity 0
   {
     e.set_multiplicity( n_spikes );
     e.get_receiver().handle( e );
   }
-}
-
-/* ----------------------------------------------------------------
- * Other functions
- * ---------------------------------------------------------------- */
-
-void
-nest::poisson_generator::set_data_from_stimulation_backend( std::vector< double >& input_param )
-{
-  Parameters_ ptmp = P_; // temporary copy in case of errors
-
-  // For the input backend
-  if ( not input_param.empty() )
-  {
-    if ( input_param.size() != 1 )
-    {
-      throw BadParameterValue( "The size of the data for the poisson generator needs to be 1 [rate]." );
-    }
-    DictionaryDatum d = DictionaryDatum( new Dictionary );
-    ( *d )[ names::rate ] = DoubleDatum( input_param[ 0 ] );
-    ptmp.set( d, this );
-  }
-
-  // if we get here, temporary contains consistent set of properties
-  P_ = ptmp;
 }

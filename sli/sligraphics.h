@@ -41,19 +41,28 @@ class SLIgraphics : public SLIModule
   class ReadPGMFunction : public SLIFunction
   {
   private:
-    std::istream* openPGMFile( StringDatum* ) const;        //!< opens the file
-    void readMagicNumber( std::istream*, char[ 2 ] ) const; //!< reads the magic number into string magic
-    void initRead( std::istream*, int&, int&, int& ) const; //!< reads width, height, maxval
-    void readImage( std::istream*, char[ 2 ], std::vector< long >&, int, int, int ) const; //!< reads the image
+    std::istream* openPGMFile( StringDatum* ) const; //!< opens the file
+    void readMagicNumber( std::istream*,
+      char[ 2 ] ) const; //!< reads the magic number into string magic
+    void initRead( std::istream*,
+      int&,
+      int&,
+      int& ) const; //!< reads width, height, maxval
+    void readImage( std::istream*,
+      char[ 2 ],
+      std::vector< long >&,
+      int,
+      int,
+      int ) const; //!< reads the image
 
   public:
-    void execute( SLIInterpreter* ) const override;
+    virtual void execute( SLIInterpreter* ) const;
   };
 
   class WritePGMFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    virtual void execute( SLIInterpreter* ) const;
   };
 
   ReadPGMFunction readpgmfunction;
@@ -64,9 +73,9 @@ public:
   {
   }
 
-  void init( SLIInterpreter* ) override;
-  const std::string name() const override;
-  const std::string commandstring() const override;
+  void init( SLIInterpreter* );
+  const std::string name( void ) const;
+  const std::string commandstring( void ) const;
 };
 
 

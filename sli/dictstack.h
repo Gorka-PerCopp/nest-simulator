@@ -66,6 +66,8 @@ Problems:
 #define DICTSTACK_CACHE 1
 #endif
 
+//#undef DICTSTACK_CACHE
+
 class DictionaryStack
 {
 private:
@@ -93,7 +95,7 @@ public:
     Name::handle_t key = n.toIndex();
     if ( key >= cache_.size() )
     {
-      cache_.resize( Name::num_handles() + 100, nullptr );
+      cache_.resize( Name::num_handles() + 100, 0 );
     }
     cache_[ key ] = result;
   }
@@ -104,7 +106,7 @@ public:
     Name::handle_t key = n.toIndex();
     if ( key >= basecache_.size() )
     {
-      basecache_.resize( Name::num_handles() + 100, nullptr );
+      basecache_.resize( Name::num_handles() + 100, 0 );
     }
     basecache_[ key ] = result;
   }
@@ -119,7 +121,7 @@ public:
     Name::handle_t key = n.toIndex();
     if ( key < cache_.size() )
     {
-      cache_[ key ] = nullptr;
+      cache_[ key ] = 0;
     }
   }
 
@@ -129,7 +131,7 @@ public:
     Name::handle_t key = n.toIndex();
     if ( key < basecache_.size() )
     {
-      basecache_[ key ] = nullptr;
+      basecache_[ key ] = 0;
     }
   }
 
@@ -153,7 +155,7 @@ public:
     const size_t cache_size = cache_.size();
     for ( size_t i = 0; i < cache_size; ++i )
     {
-      cache_[ i ] = nullptr;
+      cache_[ i ] = 0;
     }
   }
 
@@ -208,9 +210,8 @@ public:
    *  If the Name is not found,
    *  @a VoidToken is returned.
    */
-  const Token&
-  baselookup( const Name& n ) // lookup in a specified
-  {                           // base dictionary
+  const Token& baselookup( const Name& n ) // lookup in a specified
+  {                                        // base dictionary
 #ifdef DICTSTACK_CACHE
     Name::handle_t key = n.toIndex();
     if ( key < basecache_.size() )
@@ -273,9 +274,8 @@ public:
 
   /** Test for a name in the bottom level dictionary.
    */
-  bool
-  baseknown( const Name& n ) // lookup in a specified
-  {                          // base dictionary
+  bool baseknown( const Name& n ) // lookup in a specified
+  {                               // base dictionary
 #ifdef DICTSTACK_CACHE
     Name::handle_t key = n.toIndex();
     if ( key < basecache_.size() )
@@ -334,7 +334,9 @@ public:
    */
   void basedef_move( const Name& n, Token& t );
 
-  void pop();
+  bool where( const Name&, Token& );
+
+  void pop( void );
 
 
   //
@@ -344,7 +346,7 @@ public:
   void push( const DictionaryDatum& );
   void push( Token& );
 
-  void clear();
+  void clear( void );
   void toArray( TokenArray& ) const;
   //
   // move is efficient for interaction with operand and execution
@@ -356,7 +358,7 @@ public:
   //
   // number of dictionaries currently on the stack
   //
-  size_t size() const;
+  size_t size( void ) const;
 
 
   //
@@ -387,13 +389,13 @@ DictionaryStack::def( const Name& n, const Token& t )
 inline void
 DictionaryStack::def_move( const Name& n, Token& t )
 {
-  //
-  // insert (n,t) in top level dictionary
-  // dictionary stack must contain at least one dictionary
-  // VoidToken is an illegal value for t.
-  // def_move returns t as the VoidToken.
-  //
-  /* clear_token_from_cache(n); */
+//
+// insert (n,t) in top level dictionary
+// dictionary stack must contain at least one dictionary
+// VoidToken is an illegal value for t.
+// def_move returns t as the VoidToken.
+//
+/* clear_token_from_cache(n); */
 
 #ifdef DICTSTACK_CACHE
   cache_token( n, &( ( *d.begin() )->insert_move( n, t ) ) );

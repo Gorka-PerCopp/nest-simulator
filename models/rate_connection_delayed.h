@@ -21,6 +21,31 @@
  */
 
 
+/* BeginDocumentation
+Name: rate_connection_delayed - Synapse type for rate connections with delay.
+
+Description:
+ rate_connection_delayed is a connector to create connections with delay
+ between rate model neurons.
+
+ To create instantaneous rate connections please use
+ the synapse type rate_connection_instantaneous.
+
+Transmits: DelayedRateConnectionEvent
+
+References:
+
+ Hahne, J., Dahmen, D., Schuecker, J., Frommer, A.,
+ Bolten, M., Helias, M. and Diesmann, M. (2017).
+ Integration of Continuous-Time Dynamics in a
+ Spiking Neural Network Simulator.
+ Front. Neuroinform. 11:34. doi: 10.3389/fninf.2017.00034
+
+Author: David Dahmen, Jan Hahne, Jannis Schuecker
+SeeAlso: rate_connection_instantaneous, rate_neuron_ipn, rate_neuron_opn
+*/
+
+
 #ifndef RATE_CONNECTION_DELAYED_H
 #define RATE_CONNECTION_DELAYED_H
 
@@ -28,78 +53,29 @@
 
 namespace nest
 {
-
-/* BeginUserDocs: synapse, rate
-
-Short description
-+++++++++++++++++
-
-Synapse type for rate connections with delay
-
-Description
-+++++++++++
-
-``rate_connection_delayed`` is a connector to create connections with delay
-between rate model neurons.
-
-To create instantaneous rate connections please use
-the synapse type ``rate_connection_instantaneous``.
-
-See also [1]_.
-
-Transmits
-+++++++++
-
-DelayedRateConnectionEvent
-
-References
-++++++++++
-
-.. [1] Hahne J, Dahmen D, Schuecker J, Frommer A, Bolten M, Helias M,
-       Diesmann M (2017). Integration of continuous-time dynamics in a
-       spiking neural network simulator. Frontiers in Neuroinformatics, 11:34.
-       DOI: https://doi.org/10.3389/fninf.2017.00034
-
-See also
-++++++++
-
-rate_connection_instantaneous, rate_neuron_ipn, rate_neuron_opn
-
-Examples using this model
-+++++++++++++++++++++++++
-
-.. listexamples:: rate_connection_delayed
-
-EndUserDocs */
-
 /**
  * Class representing a delayed rate connection. A rate_connection_delayed
  * has the properties weight, delay and receiver port.
  */
-void register_rate_connection_delayed( const std::string& name );
-
 template < typename targetidentifierT >
-class rate_connection_delayed : public Connection< targetidentifierT >
+class RateConnectionDelayed : public Connection< targetidentifierT >
 {
 
 public:
   // this line determines which common properties to use
   typedef CommonSynapseProperties CommonPropertiesType;
   typedef Connection< targetidentifierT > ConnectionBase;
-
-  static constexpr ConnectionModelProperties properties = ConnectionModelProperties::HAS_DELAY;
+  typedef DelayedRateConnectionEvent EventType;
 
   /**
    * Default Constructor.
    * Sets default values for all parameters. Needed by GenericConnectorModel.
    */
-  rate_connection_delayed()
+  RateConnectionDelayed()
     : ConnectionBase()
     , weight_( 1.0 )
   {
   }
-
-  std::unique_ptr< SecondaryEvent > get_secondary_event();
 
   // Explicitly declare all methods inherited from the dependent base
   // ConnectionBase.
@@ -112,13 +88,17 @@ public:
   using ConnectionBase::get_target;
 
   void
-  check_connection( Node& s, Node& t, size_t receptor_type, const CommonPropertiesType& )
+  check_connection( Node& s,
+    Node& t,
+    rport receptor_type,
+    const CommonPropertiesType& )
   {
-    DelayedRateConnectionEvent ge;
+    EventType ge;
 
     s.sends_secondary_event( ge );
     ge.set_sender( s );
-    Connection< targetidentifierT >::target_.set_rport( t.handles_test_event( ge, receptor_type ) );
+    Connection< targetidentifierT >::target_.set_rport(
+      t.handles_test_event( ge, receptor_type ) );
     Connection< targetidentifierT >::target_.set_target( &t );
   }
 
@@ -127,16 +107,14 @@ public:
    * \param e The event to send
    * \param p The port under which this connection is stored in the Connector.
    */
-  bool
-  send( Event& e, size_t t, const CommonSynapseProperties& )
+  void
+  send( Event& e, thread t, const CommonSynapseProperties& )
   {
     e.set_weight( weight_ );
-    e.set_delay_steps( get_delay_steps() );
+    e.set_delay( get_delay_steps() );
     e.set_receiver( *get_target( t ) );
     e.set_rport( get_rport() );
     e();
-
-    return true;
   }
 
   void get_status( DictionaryDatum& d ) const;
@@ -154,11 +132,9 @@ private:
 };
 
 template < typename targetidentifierT >
-constexpr ConnectionModelProperties rate_connection_delayed< targetidentifierT >::properties;
-
-template < typename targetidentifierT >
 void
-rate_connection_delayed< targetidentifierT >::get_status( DictionaryDatum& d ) const
+RateConnectionDelayed< targetidentifierT >::get_status(
+  DictionaryDatum& d ) const
 {
   ConnectionBase::get_status( d );
   def< double >( d, names::weight, weight_ );
@@ -167,17 +143,12 @@ rate_connection_delayed< targetidentifierT >::get_status( DictionaryDatum& d ) c
 
 template < typename targetidentifierT >
 void
-rate_connection_delayed< targetidentifierT >::set_status( const DictionaryDatum& d, ConnectorModel& cm )
+RateConnectionDelayed< targetidentifierT >::set_status(
+  const DictionaryDatum& d,
+  ConnectorModel& cm )
 {
   ConnectionBase::set_status( d, cm );
   updateValue< double >( d, names::weight, weight_ );
-}
-
-template < typename targetidentifierT >
-std::unique_ptr< SecondaryEvent >
-rate_connection_delayed< targetidentifierT >::get_secondary_event()
-{
-  return std::make_unique< DelayedRateConnectionEvent >();
 }
 
 } // namespace

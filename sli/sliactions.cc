@@ -33,6 +33,7 @@
 #include "functiondatum.h"
 #include "integerdatum.h"
 #include "interpret.h"
+#include "iostreamdatum.h"
 #include "namedatum.h"
 #include "triedatum.h"
 
@@ -50,7 +51,8 @@ DatatypeFunction::execute( SLIInterpreter* i ) const
 void
 NametypeFunction::execute( SLIInterpreter* i ) const
 {
-  i->EStack.top() = i->lookup2( *static_cast< NameDatum* >( i->EStack.top().datum() ) );
+  i->EStack.top() =
+    i->lookup2( *static_cast< NameDatum* >( i->EStack.top().datum() ) );
 }
 
 void
@@ -60,7 +62,8 @@ ProceduretypeFunction::execute( SLIInterpreter* i ) const
   // wen don't have to look it up each time.
   static Token iiterate( i->Iiterate() );
 
-  i->code_accessed += ( static_cast< ProcedureDatum* >( i->EStack.top().datum() ) )->size();
+  i->code_accessed +=
+    ( static_cast< ProcedureDatum* >( i->EStack.top().datum() ) )->size();
 
   i->EStack.push_by_pointer( new IntegerDatum( 0 ) );
   i->EStack.push_by_ref( iiterate );
@@ -75,7 +78,8 @@ LitproceduretypeFunction::execute( SLIInterpreter* i ) const
   // moved to the operand stack. After this, the literal procedure becomes
   // an executable procedure and will be treated as such.
 
-  LitprocedureDatum* lpd = static_cast< LitprocedureDatum* >( i->EStack.top().datum() );
+  LitprocedureDatum* lpd =
+    static_cast< LitprocedureDatum* >( i->EStack.top().datum() );
   i->OStack.push_by_pointer( new ProcedureDatum( *lpd ) ); //
   i->EStack.pop();
 }
@@ -88,7 +92,7 @@ FunctiontypeFunction::execute( SLIInterpreter* i ) const
   if ( i->step_mode() )
   {
     std::cerr << "Calling builtin function: ";
-    if ( fd )
+    if ( fd != NULL )
     {
       fd->pprint( std::cerr );
     }
@@ -106,6 +110,7 @@ FunctiontypeFunction::execute( SLIInterpreter* i ) const
 void
 TrietypeFunction::execute( SLIInterpreter* i ) const
 {
+
   TrieDatum* tried = static_cast< TrieDatum* >( i->EStack.top().datum() );
   i->EStack.top().assign_by_ref( tried->lookup( i->OStack ) );
 }
@@ -113,14 +118,17 @@ TrietypeFunction::execute( SLIInterpreter* i ) const
 void
 CallbacktypeFunction::execute( SLIInterpreter* i ) const
 {
+  //    assert(i->ct.datum() != NULL); // we wouldn't be here otherwise
+
   CallbackDatum* cb = static_cast< CallbackDatum* >( i->ct.datum() );
 
   // Note, although cb is a pointer to a class derived from Datum,
   // it also has the properties of a token, since it is derived from both.
 
+
   i->EStack.push_move( i->ct );
   // This moves the complete callback datum to the EStack.
-  // Now, the pointer in ct is set to nullptr !!
+  // Now, the pointer in ct is set to NULL !!
 
   // Now push command to restore the callback, once the action has
   // been finished

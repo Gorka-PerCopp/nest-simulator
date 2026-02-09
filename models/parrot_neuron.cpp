@@ -23,6 +23,9 @@
 
 #include "parrot_neuron.h"
 
+// C++ includes:
+#include <limits>
+
 // Includes from libnestutil:
 #include "numerics.h"
 
@@ -30,22 +33,18 @@
 #include "event_delivery_manager_impl.h"
 #include "exceptions.h"
 #include "kernel_manager.h"
-#include "nest_impl.h"
 
 // Includes from sli:
+#include "dict.h"
 #include "dictutils.h"
+#include "doubledatum.h"
+#include "integerdatum.h"
 
 namespace nest
 {
-void
-register_parrot_neuron( const std::string& name )
-{
-  register_node_model< parrot_neuron >( name );
-}
-
 
 parrot_neuron::parrot_neuron()
-  : ArchivingNode()
+  : Archiving_Node()
 {
 }
 
@@ -53,15 +52,20 @@ void
 parrot_neuron::init_buffers_()
 {
   B_.n_spikes_.clear(); // includes resize
-  ArchivingNode::clear_history();
+  Archiving_Node::clear_history();
 }
 
 void
 parrot_neuron::update( Time const& origin, const long from, const long to )
 {
+  assert(
+    to >= 0 && ( delay ) from < kernel().connection_manager.get_min_delay() );
+  assert( from < to );
+
   for ( long lag = from; lag < to; ++lag )
   {
-    const unsigned long current_spikes_n = static_cast< unsigned long >( B_.n_spikes_.get_value( lag ) );
+    const unsigned long current_spikes_n =
+      static_cast< unsigned long >( B_.n_spikes_.get_value( lag ) );
     if ( current_spikes_n > 0 )
     {
       // create a new SpikeEvent, set its multiplicity and send it
@@ -81,13 +85,14 @@ parrot_neuron::update( Time const& origin, const long from, const long to )
 void
 parrot_neuron::get_status( DictionaryDatum& d ) const
 {
-  ArchivingNode::get_status( d );
+  def< double >( d, names::t_spike, get_spiketime_ms() );
+  Archiving_Node::get_status( d );
 }
 
 void
 parrot_neuron::set_status( const DictionaryDatum& d )
 {
-  ArchivingNode::set_status( d );
+  Archiving_Node::set_status( d );
 }
 
 void
@@ -96,7 +101,8 @@ parrot_neuron::handle( SpikeEvent& e )
   // Repeat only spikes incoming on port 0, port 1 will be ignored
   if ( 0 == e.get_rport() )
   {
-    B_.n_spikes_.add_value( e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ),
+    B_.n_spikes_.add_value( e.get_rel_delivery_steps(
+                              kernel().simulation_manager.get_slice_origin() ),
       static_cast< double >( e.get_multiplicity() ) );
   }
 }

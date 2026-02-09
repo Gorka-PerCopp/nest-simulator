@@ -5,8 +5,7 @@
 double e( M_E );
 double pi( M_PI );
 
-int
-main( int argc, char const* argv[] )
+int main(int argc, char const *argv[])
 {
   return 0;
 }

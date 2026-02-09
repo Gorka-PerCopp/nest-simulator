@@ -36,10 +36,9 @@
 
 typedef std::map< Name, Token, std::less< Name > > TokenMap;
 
-inline bool
-operator==( const TokenMap& x, const TokenMap& y )
+inline bool operator==( const TokenMap& x, const TokenMap& y )
 {
-  return ( x.size() == y.size() ) and equal( x.begin(), x.end(), y.begin() );
+  return ( x.size() == y.size() ) && equal( x.begin(), x.end(), y.begin() );
 }
 
 /** A class that associates names and tokens.
@@ -61,13 +60,14 @@ class Dictionary : private TokenMap
     static bool nocase_compare( char c1, char c2 );
 
   public:
-    bool
-    operator()( const std::pair< Name, Token >& lhs, const std::pair< Name, Token >& rhs ) const
+    bool operator()( const std::pair< Name, Token >& lhs,
+      const std::pair< Name, Token >& rhs ) const
     {
       const std::string& ls = lhs.first.toString();
       const std::string& rs = rhs.first.toString();
 
-      return std::lexicographical_compare( ls.begin(), ls.end(), rs.begin(), rs.end(), nocase_compare );
+      return std::lexicographical_compare(
+        ls.begin(), ls.end(), rs.begin(), rs.end(), nocase_compare );
     }
   };
 
@@ -83,12 +83,12 @@ public:
   }
   ~Dictionary();
 
+  using TokenMap::erase;
+  using TokenMap::size;
   using TokenMap::begin;
   using TokenMap::end;
-  using TokenMap::erase;
-  using TokenMap::find;
   using TokenMap::iterator;
-  using TokenMap::size;
+  using TokenMap::find;
 
   void clear();
 
@@ -132,15 +132,14 @@ public:
   Token& operator[]( const char* );
 
   bool
-  empty() const
+  empty( void ) const
   {
     return TokenMap::empty();
   }
 
   void info( std::ostream& ) const;
 
-  bool
-  operator==( const Dictionary& d ) const
+  bool operator==( const Dictionary& d ) const
   {
     return ::operator==( *this, d );
   }
@@ -192,6 +191,27 @@ public:
    * we export the constant iterator type and begin() and end() methods.
    */
   typedef TokenMap::const_iterator const_iterator;
+
+  /**
+   * First element in dictionary.
+   * Dictionary inherits privately from std::map to hide implementation
+   * details. To allow for inspection of all elements in a dictionary,
+   * we export the constant iterator type and begin() and end() methods.
+   */
+  //  const_iterator begin() const;
+
+  /**
+   * One-past-last element in dictionary.
+   * Dictionary inherits privately from std::map to hide implementation
+   * details. To allow for inspection of all elements in a dictionary,
+   * we export the constant iterator type and begin() and end() methods.
+   */
+  // const_iterator end() const;
+
+  /**
+   *
+   */
+  void initialize_property_array( Name propname );
 
   /**
    * This function is called when a dictionary is pushed to the dictionary
@@ -306,8 +326,7 @@ Dictionary::insert( const Name& n, const Token& t )
 }
 
 
-inline const Token&
-Dictionary::operator[]( const Name& n ) const
+inline const Token& Dictionary::operator[]( const Name& n ) const
 {
   TokenMap::const_iterator where = find( n );
   if ( where != end() )
@@ -321,8 +340,7 @@ Dictionary::operator[]( const Name& n ) const
 }
 
 
-inline Token&
-Dictionary::operator[]( const Name& n )
+inline Token& Dictionary::operator[]( const Name& n )
 {
   return TokenMap::operator[]( n );
 }

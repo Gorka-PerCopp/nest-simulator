@@ -71,7 +71,8 @@ sli::pool AggregateDatum< std::string, &SLIInterpreter::Stringtype >::memory;
 
 
 template <>
-void AggregateDatum< std::string, &SLIInterpreter::Stringtype >::pprint( std::ostream& out ) const;
+void AggregateDatum< std::string, &SLIInterpreter::Stringtype >::pprint(
+  std::ostream& out ) const;
 
 
 typedef AggregateDatum< std::string, &SLIInterpreter::Stringtype > StringDatum;
@@ -84,7 +85,7 @@ public:
   ToUppercase_sFunction()
   {
   }
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class ToLowercase_sFunction : public SLIFunction
@@ -93,7 +94,7 @@ public:
   ToLowercase_sFunction()
   {
   }
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 #endif

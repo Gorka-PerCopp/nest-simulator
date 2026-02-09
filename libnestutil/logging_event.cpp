@@ -46,8 +46,7 @@ nest::LoggingEvent::LoggingEvent( const nest::severity_t s,
 namespace nest
 {
 
-std::ostream&
-operator<<( std::ostream& out, const LoggingEvent& e )
+std::ostream& operator<<( std::ostream& out, const LoggingEvent& e )
 {
   struct tm* ptm = localtime( &e.time_stamp );
   switch ( e.severity )
@@ -63,9 +62,6 @@ operator<<( std::ostream& out, const LoggingEvent& e )
     break;
   case M_INFO:
     out << "[INFO] ";
-    break;
-  case M_PROGRESS:
-    out << "[PROGRESS] ";
     break;
   case M_DEPRECATED:
     out << "[DEPRECATED] ";
@@ -87,10 +83,12 @@ operator<<( std::ostream& out, const LoggingEvent& e )
     break;
   }
   // print time and day
-  out << "[" << ptm->tm_year + 1900 << "." << ptm->tm_mon + 1 << "." << ptm->tm_mday << " " << ptm->tm_hour << ":"
-      << ptm->tm_min << ":" << ptm->tm_sec << " ";
+  out << "[" << ptm->tm_year + 1900 << "." << ptm->tm_mon + 1 << "."
+      << ptm->tm_mday << " " << ptm->tm_hour << ":" << ptm->tm_min << ":"
+      << ptm->tm_sec << " ";
 
-  out << e.file_name << ":" << e.line_number << " @ " << e.function << "] : " << e.message;
+  out << e.file_name << ":" << e.line_number << " @ " << e.function
+      << "] : " << e.message;
 
   return out;
 }

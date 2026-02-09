@@ -51,7 +51,8 @@ class Processes : public SLIModule
   // The following concernes the new module: -----------------------
 
 public:
-  static const std::string systemerror( SLIInterpreter* ); // This will be used to produce systemerror-messages
+  static const std::string systemerror(
+    SLIInterpreter* ); // This will be used to produce systemerror-messages
 
   static int fd( std::istream* s );
   static int fd( std::ostream* s );
@@ -140,7 +141,7 @@ public:
   const Name EXDEV_name;
 
   // The constructor and destructor for our module object (-if we need them-):
-  Processes()
+  Processes( void )
     : signaldict_name( "signaldict" )
     , SIGABRT_name( "SIGABRT" )
     , SIGALRM_name( "SIGALRM" )
@@ -207,17 +208,17 @@ public:
   {
   } // Processes constructor
 
-  ~Processes() override; // clean up dynmem for static variables...
+  ~Processes( void ); // clean up dynmem for static variables...
 
   // The Module is registered by a call to this Function:
-  void init( SLIInterpreter* ) override;
+  void init( SLIInterpreter* );
 
   // This function will return the name of our module:
-  const std::string name() const override;
+  const std::string name( void ) const;
 
   // This function -may- return a string of SLI-commands to be executed for
   // initialization
-  const std::string commandstring() const override;
+  const std::string commandstring( void ) const;
 
 
   // ---------------------------------------------------------------
@@ -230,73 +231,80 @@ public:
   class ForkFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class Sysexec_aFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class WaitPIDFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class KillFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class PipeFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class Dup2_is_isFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class Dup2_os_osFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class Dup2_is_osFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class Dup2_os_isFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class AvailableFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class GetPIDFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class GetPPIDFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class GetPGRPFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class MkfifoFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
+
+#if defined IS_BLUEGENE_P || defined IS_BLUEGENE_Q
+  class MemoryThisjobBgFunction : public SLIFunction
+  {
+    void execute( SLIInterpreter* ) const;
+  };
+#endif
 
 #if defined __APPLE__ && defined HAVE_MACH_MACH_H
   class MemoryThisjobDarwinFunction : public SLIFunction
@@ -308,22 +316,22 @@ public:
   class SetNonblockFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class CtermidFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class Isatty_isFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
   class Isatty_osFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override; // This is all we need.
+    void execute( SLIInterpreter* ) const; // This is all we need.
   };
 
   // Module contains -one- instantiation of each new function-class:
@@ -344,6 +352,10 @@ public:
   GetPGRPFunction getpgrpfunction;
   MkfifoFunction mkfifofunction;
 
+#if defined IS_BLUEGENE_P || defined IS_BLUEGENE_Q
+  MemoryThisjobBgFunction memorythisjobbgfunction;
+#endif
+
 #if defined __APPLE__ && defined HAVE_MACH_MACH_H
   MemoryThisjobDarwinFunction memorythisjobdarwinfunction;
 #endif
@@ -358,7 +370,8 @@ public:
 // Description of new SLI-commands:
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: fork - create a child process of SLI
 
 Synopsis: fork -> PID
@@ -429,7 +442,8 @@ SeeAlso: sysexec, fork, spoon
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: waitPID - wait or check for a child process to terminate
 
 Synopsis: PIDin NoHangFlag waitPID -> Status NormalExitFlag PIDout
@@ -509,7 +523,8 @@ SeeAlso: wait, spoon, signaldict, getPGRP
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: kill - send a signal to another process
 
 Synopsis: PID  SIGNAL kill -> -
@@ -585,7 +600,8 @@ getPGRP
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: signaldict - Dictionary containing the machine-dependent signal codes.
 
 Synopsis: signaldict -> signaldict
@@ -621,7 +637,8 @@ SeeAlso: kill, wait, waitPID, system, sysexec, spoon, fork
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: pipe - Open up a pipe
 
 Synopsis: pipe -> read_end write_end
@@ -689,7 +706,8 @@ SeeAlso: dup2, available, spawn
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: available - check if data is available from an istream
 
 Synopsis: istream available -> istream {true|false}
@@ -768,7 +786,8 @@ SeeAlso: pipe, mkfifo, spawn, eof, in_avail
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: getPID - Get ID of the current process
 
 Synopsis: getPID -> -
@@ -792,7 +811,8 @@ SeeAlso: getPPID, getPGRP, fork, spoon, waitPID, kill, system, spawn, shpawn
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: getPPID - Get parent ID of the current process
 
 Synopsis: getPPID -> -
@@ -814,7 +834,8 @@ SeeAlso: getPID, getPGRP, fork, spoon, waitPID, kill, system, spawn, shpawn
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: getPGRP - Get process group ID of the current process
 
 Synopsis: getPGRP -> -
@@ -838,7 +859,8 @@ SeeAlso: fork, getPID, kill
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: mkfifo - Create a FIFO special file (named pipe)
 
 Synopsis: path mkfifo -> -
@@ -891,7 +913,8 @@ SeeAlso: pipe, mkfifo, ifstream, available, ignore, dup2
 */
 
 //-----------------------------------------------------------------------------
-/** @BeginDocumentation
+/* BeginDocumentation
+
 Name: setNONBLOCK - Switch between blocking and non-blocking I/O.
 
 Synopsis: ifstream {true|false} setNONBLOCK -> ifstream
@@ -950,7 +973,9 @@ SeeAlso: available, ignore
 */
 
 
-/** @BeginDocumentation
+/*
+BeginDocumentation
+
 Name: ctermid - Return the path to the controlling terminal of the process.
 
 Synopsis: ctermid -> (pathname)

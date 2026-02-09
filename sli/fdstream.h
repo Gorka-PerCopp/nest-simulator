@@ -33,8 +33,8 @@
 
 #ifndef HAVE_ISTREAM
 // C++ includes:
-#include <fstream>
 #include <iostream>
+#include <fstream>
 
 typedef std::ifstream ifdstream;
 typedef std::ofstream ofdstream;
@@ -92,7 +92,7 @@ public:
     setp( m_outbuf, m_outbuf + s_bufsiz );
   }
 
-  ~fdbuf() override
+  ~fdbuf()
   {
     // sync();
     close();
@@ -120,7 +120,7 @@ public:
 
 protected:
   int_type
-  underflow() override
+  underflow()
   {
     if ( gptr() == egptr() )
     {
@@ -135,7 +135,7 @@ protected:
   }
 
   int_type
-  overflow( int_type c ) override
+  overflow( int_type c )
   {
     if ( sync() == -1 )
     {
@@ -153,10 +153,10 @@ protected:
   }
 
   int
-  sync() override
+  sync()
   {
     std::streamsize size = pptr() - pbase();
-    if ( size > 0 and ::write( m_fd, m_outbuf, size ) != size )
+    if ( size > 0 && ::write( m_fd, m_outbuf, size ) != size )
     {
       return -1;
     }
@@ -185,15 +185,16 @@ public:
    */
 
   ofdstream()
-    : std::ostream( nullptr )
+    : std::ostream( 0 )
     , sb()
   {
     std::ostream::rdbuf( &sb );
     init( &sb );
   }
 
-  explicit ofdstream( const char* s, std::ios_base::openmode mode = std::ios_base::out )
-    : std::ostream( nullptr )
+  explicit ofdstream( const char* s,
+    std::ios_base::openmode mode = std::ios_base::out )
+    : std::ostream( 0 )
     , sb()
   {
     std::ostream::rdbuf( &sb );
@@ -203,7 +204,7 @@ public:
   }
 
   explicit ofdstream( int fd )
-    : std::ostream( nullptr )
+    : std::ostream( 0 )
     , sb( fd )
   {
     std::ostream::rdbuf( &sb );
@@ -226,7 +227,7 @@ public:
   void
   open( const char* s, std::ios_base::openmode mode = std::ios_base::out )
   {
-    if ( not rdbuf()->open( s, mode | std::ios_base::out ) )
+    if ( rdbuf()->open( s, mode | std::ios_base::out ) == NULL )
     {
       setstate( failbit );
     }
@@ -242,15 +243,16 @@ class ifdstream : public std::istream
 {
 public:
   ifdstream()
-    : std::istream( nullptr )
+    : std::istream( 0 )
     , sb()
   {
     std::istream::rdbuf( &sb );
     init( &sb );
   }
 
-  explicit ifdstream( const char* s, std::ios_base::openmode mode = std::ios_base::in )
-    : std::istream( nullptr )
+  explicit ifdstream( const char* s,
+    std::ios_base::openmode mode = std::ios_base::in )
+    : std::istream( 0 )
     , sb()
   {
     std::istream::rdbuf( &sb );
@@ -259,7 +261,7 @@ public:
   }
 
   explicit ifdstream( int fd )
-    : std::istream( nullptr )
+    : std::istream( 0 )
     , sb( fd )
   {
     std::istream::rdbuf( &sb );
@@ -283,7 +285,7 @@ public:
   void
   open( const char* s, std::ios_base::openmode mode = std::ios_base::in )
   {
-    if ( not rdbuf()->open( s, mode | std::ios_base::in ) )
+    if ( rdbuf()->open( s, mode | std::ios_base::in ) == NULL )
     {
       setstate( failbit );
     }
@@ -299,7 +301,7 @@ class fdstream : public std::iostream
 {
 public:
   fdstream()
-    : std::iostream( nullptr )
+    : std::iostream( 0 )
     , sb() // See Constructor comment above.
   {
     std::iostream::rdbuf( &sb );
@@ -307,7 +309,7 @@ public:
   }
 
   explicit fdstream( const char* s, std::ios_base::openmode mode )
-    : std::iostream( nullptr )
+    : std::iostream( 0 )
     , sb() // See Constructor comment above.
   {
     std::iostream::rdbuf( &sb );
@@ -317,7 +319,7 @@ public:
 
   explicit fdstream( int fd )
     : // See Constructor comment above.
-    std::iostream( nullptr )
+    std::iostream( 0 )
     , sb( fd )
   {
     std::iostream::rdbuf( &sb );
@@ -341,7 +343,7 @@ public:
   void
   open( const char* s, std::ios_base::openmode mode )
   {
-    if ( not rdbuf()->open( s, mode ) )
+    if ( rdbuf()->open( s, mode ) == NULL )
     {
       setstate( failbit );
     }

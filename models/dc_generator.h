@@ -21,6 +21,35 @@
  */
 
 
+/*BeginDocumentation
+Name: dc_generator - provides DC input current
+
+Description: The DC-Generator provides a constant DC Input
+to the connected node. The unit of the current is pA.
+
+Parameters:
+  The following parameters can be set in the status dictionary:
+  amplitude  double - Amplitude of current in pA
+
+Examples: The dc current can be altered in the following way:
+   /dc_generator Create /dc_gen Set    % Creates a dc_generator, which is a node
+   dc_gen GetStatus info                    % View properties (amplitude is 0)
+   dc_gen << /amplitude 1500. >> SetStatus
+   dc_gen GetStatus info                    % amplitude is now 1500.0
+
+Remarks: The dc_generator is rather inefficient, since it needs to
+      send the same current information on each time step. If you
+      only need a constant bias current into a neuron, you should
+      set it directly in the neuron, e.g., dc_generator.
+
+Sends: CurrentEvent
+
+Author: docu by Sirko Straube
+
+SeeAlso: Device, StimulatingDevice
+
+*/
+
 #ifndef DC_GENERATOR_H
 #define DC_GENERATOR_H
 
@@ -33,96 +62,54 @@
 #include "event.h"
 #include "nest_types.h"
 #include "ring_buffer.h"
-#include "stimulation_device.h"
+#include "stimulating_device.h"
 #include "universal_data_logger.h"
 
 namespace nest
 {
-
-/* BeginUserDocs: device, generator
-
-Short description
-+++++++++++++++++
-
-Provide a direct current (DC) input
-
-Description
-+++++++++++
-
-The ``dc_generator`` provides a constant DC input to the connected
-node. The unit of the current is pA.
-
-The ``dc_generator`` is rather inefficient, since it needs to send the
-same current information on each time step. If you only need a
-constant bias current into a neuron, you could instead directly set
-the property ``I_e``, which is available in many neuron models.
-
-.. include:: ../models/stimulation_device.rst
-
-amplitude
-    Amplitude of current (pA)
-
-Set parameters from a stimulation backend
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The parameters in this stimulation device can be updated with input
-coming from a stimulation backend. The data structure used for the
-update holds one value for each of the parameters mentioned above.
-The indexing is as follows:
-
- 0. amplitude
-
-Sends
-+++++
-
-CurrentEvent
-
-See also
-++++++++
-
-ac_generator, noise_generator, step_current_generator
-
-Examples using this model
-+++++++++++++++++++++++++
-
-.. listexamples:: dc_generator
-
-EndUserDocs */
-
-void register_dc_generator( const std::string& name );
-
-class dc_generator : public StimulationDevice
+/**
+ * DC current generator.
+ *
+ * @ingroup Devices
+ */
+class dc_generator : public DeviceNode
 {
 
 public:
   dc_generator();
   dc_generator( const dc_generator& );
 
-  //! Allow multimeter to connect to local instances
-  bool local_receiver() const override;
+  bool
+  has_proxies() const
+  {
+    return false;
+  }
 
-  size_t send_test_event( Node&, size_t, synindex, bool ) override;
+  port send_test_event( Node&, rport, synindex, bool );
 
   using Node::handle;
   using Node::handles_test_event;
 
-  void handle( DataLoggingRequest& ) override;
+  void handle( DataLoggingRequest& );
 
-  size_t handles_test_event( DataLoggingRequest&, size_t ) override;
+  port handles_test_event( DataLoggingRequest&, rport );
 
-  void get_status( DictionaryDatum& ) const override;
-  void set_status( const DictionaryDatum& ) override;
+  void get_status( DictionaryDatum& ) const;
+  void set_status( const DictionaryDatum& );
 
-  StimulationDevice::Type get_type() const override;
-
-  void set_data_from_stimulation_backend( std::vector< double >& input_param ) override;
+  //! Allow multimeter to connect to local instances
+  bool
+  local_receiver() const
+  {
+    return true;
+  }
 
 private:
-  void init_state_() override;
-  void init_buffers_() override;
-  void pre_run_hook() override;
+  void init_state_( const Node& );
+  void init_buffers_();
+  void calibrate();
 
-  void update( Time const&, const long, const long ) override;
+  void update( Time const&, const long, const long );
 
   // ------------------------------------------------------------
 
@@ -137,8 +124,8 @@ private:
     Parameters_( const Parameters_& );
     Parameters_& operator=( const Parameters_& p );
 
-    void get( DictionaryDatum& ) const;             //!< Store current values in dictionary
-    void set( const DictionaryDatum&, Node* node ); //!< Set values from dictionary
+    void get( DictionaryDatum& ) const; //!< Store current values in dictionary
+    void set( const DictionaryDatum& ); //!< Set values from dictionary
   };
 
   // ------------------------------------------------------------
@@ -149,6 +136,8 @@ private:
                //!< Required to handle current values when device is inactive
 
     State_(); //!< Sets default parameter values
+
+    void get( DictionaryDatum& ) const; //!< Store current values in dictionary
   };
 
   // ------------------------------------------------------------
@@ -164,7 +153,7 @@ private:
    */
   struct Buffers_
   {
-    explicit Buffers_( dc_generator& );
+    Buffers_( dc_generator& );
     Buffers_( const Buffers_&, dc_generator& );
     UniversalDataLogger< dc_generator > logger_;
   };
@@ -179,16 +168,20 @@ private:
 
   // ------------------------------------------------------------
 
+  StimulatingDevice< CurrentEvent > device_;
   static RecordablesMap< dc_generator > recordablesMap_;
   Parameters_ P_;
   State_ S_;
   Buffers_ B_;
 };
 
-inline size_t
-dc_generator::send_test_event( Node& target, size_t receptor_type, synindex syn_id, bool )
+inline port
+dc_generator::send_test_event( Node& target,
+  rport receptor_type,
+  synindex syn_id,
+  bool )
 {
-  StimulationDevice::enforce_single_syn_type( syn_id );
+  device_.enforce_single_syn_type( syn_id );
 
   CurrentEvent e;
   e.set_sender( *this );
@@ -196,8 +189,8 @@ dc_generator::send_test_event( Node& target, size_t receptor_type, synindex syn_
   return target.handles_test_event( e, receptor_type );
 }
 
-inline size_t
-dc_generator::handles_test_event( DataLoggingRequest& dlr, size_t receptor_type )
+inline port
+dc_generator::handles_test_event( DataLoggingRequest& dlr, rport receptor_type )
 {
   if ( receptor_type != 0 )
   {
@@ -210,7 +203,7 @@ inline void
 dc_generator::get_status( DictionaryDatum& d ) const
 {
   P_.get( d );
-  StimulationDevice::get_status( d );
+  device_.get_status( d );
 
   ( *d )[ names::recordables ] = recordablesMap_.get_list();
 }
@@ -219,27 +212,15 @@ inline void
 dc_generator::set_status( const DictionaryDatum& d )
 {
   Parameters_ ptmp = P_; // temporary copy in case of errors
-  ptmp.set( d, this );   // throws if BadProperty
+  ptmp.set( d );         // throws if BadProperty
 
   // We now know that ptmp is consistent. We do not write it back
   // to P_ before we are also sure that the properties to be set
   // in the parent class are internally consistent.
-  StimulationDevice::set_status( d );
+  device_.set_status( d );
 
   // if we get here, temporaries contain consistent set of properties
   P_ = ptmp;
-}
-
-inline bool
-dc_generator::local_receiver() const
-{
-  return true;
-}
-
-inline StimulationDevice::Type
-dc_generator::get_type() const
-{
-  return StimulationDevice::Type::CURRENT_GENERATOR;
 }
 
 } // namespace

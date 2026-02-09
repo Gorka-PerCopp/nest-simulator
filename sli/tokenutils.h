@@ -152,7 +152,7 @@ FT
 getValue( const Token& t )
 {
   FT* value = dynamic_cast< FT* >( t.datum() );
-  if ( not value )
+  if ( value == NULL )
   {
     throw TypeMismatch();
   }
@@ -177,7 +177,7 @@ void
 setValue( const Token& t, FT const& value )
 {
   FT* old = dynamic_cast< FT* >( t.datum() );
-  if ( not old )
+  if ( old == NULL )
   {
     throw TypeMismatch();
   }
@@ -229,6 +229,12 @@ double getValue< double >( const Token& );
 template <>
 void setValue< double >( const Token&, double const& value );
 
+template <>
+float getValue< float >( const Token& );
+
+template <>
+void setValue< float >( const Token&, float const& value );
+
 
 template <>
 Token newToken< double >( double const& value );
@@ -262,7 +268,8 @@ Token newToken< std::string >( std::string const& value );
 template <>
 std::vector< long > getValue< std::vector< long > >( const Token& );
 template <>
-void setValue< std::vector< long > >( const Token&, std::vector< long > const& value );
+void setValue< std::vector< long > >( const Token&,
+  std::vector< long > const& value );
 
 template <>
 Token newToken< std::vector< long > >( std::vector< long > const& value );
@@ -272,7 +279,8 @@ Token newToken< std::vector< long > >( std::vector< long > const& value );
 template <>
 std::vector< double > getValue< std::vector< double > >( const Token& );
 template <>
-void setValue< std::vector< double > >( const Token&, std::vector< double > const& value );
+void setValue< std::vector< double > >( const Token&,
+  std::vector< double > const& value );
 
 template <>
 Token newToken< std::vector< double > >( std::vector< double > const& value );

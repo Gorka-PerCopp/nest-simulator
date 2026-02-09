@@ -22,19 +22,34 @@
 
 #include "neststartup.h"
 
+// C++ includes:
+#include <fstream>
 
 // Generated includes:
 #include "config.h"
+#include "static_modules.h"
 
 // Includes from libnestutil:
+#include "logging.h"
 #include "logging_event.h"
 
+// Includes from librandom:
+#include "random_numbers.h"
+
+// Includes from nest:
+#include "sli_neuron.h"
+
 // Includes from nestkernel:
+#include "dynamicloader.h"
+#include "genericmodel_impl.h"
 #include "kernel_manager.h"
 #include "nest.h"
 #include "nestmodule.h"
+#include "model_manager_impl.h"
 
 // Includes from sli:
+#include "dict.h"
+#include "dictdatum.h"
 #include "filesystem.h"
 #include "interpret.h"
 #include "oosupport.h"
@@ -61,14 +76,19 @@ get_engine()
 void
 sli_logging( const nest::LoggingEvent& e )
 {
-  sli_engine->message( static_cast< int >( e.severity ), e.function.c_str(), e.message.c_str() );
+  sli_engine->message(
+    static_cast< int >( e.severity ), e.function.c_str(), e.message.c_str() );
 }
 
-int
 #ifndef _IS_PYNEST
+int
 neststartup( int* argc, char*** argv, SLIInterpreter& engine )
 #else
-neststartup( int* argc, char*** argv, SLIInterpreter& engine, std::string modulepath )
+int
+neststartup( int* argc,
+  char*** argv,
+  SLIInterpreter& engine,
+  std::string modulepath )
 #endif
 {
   nest::init_nest( argc, argv );
@@ -94,27 +114,74 @@ neststartup( int* argc, char*** argv, SLIInterpreter& engine, std::string module
 #endif
 
   addmodule< OOSupportModule >( engine );
+  addmodule< RandomNumbers >( engine );
 
 #if defined( _BUILD_NEST_CLI ) && defined( HAVE_READLINE )
   addmodule< GNUReadline >( engine );
 #endif
 
   addmodule< SLIArrayModule >( engine );
-  addmodule< SpecialFunctionsModule >( engine );
+  addmodule< SpecialFunctionsModule >( engine ); // safe without GSL
   addmodule< SLIgraphics >( engine );
   engine.addmodule( new SLIStartup( *argc, *argv ) );
   addmodule< Processes >( engine );
   addmodule< RegexpModule >( engine );
   addmodule< FilesystemModule >( engine );
 
-  // NestModule extends SLI by commands for neuronal simulations
+  // register NestModule class
   addmodule< nest::NestModule >( engine );
+
+  // this can make problems with reference counting, if
+  // the intepreter decides cleans up memory before NEST is ready
+  engine.def( "modeldict", nest::kernel().model_manager.get_modeldict() );
+  engine.def( "synapsedict", nest::kernel().model_manager.get_synapsedict() );
+  engine.def(
+    "connruledict", nest::kernel().connection_manager.get_connruledict() );
+  engine.def(
+    "growthcurvedict", nest::kernel().sp_manager.get_growthcurvedict() );
+
+  // register sli_neuron
+  nest::kernel().model_manager.register_node_model< nest::sli_neuron >(
+    "sli_neuron" );
+
+  // now add static modules providing models
+  add_static_modules( engine );
+
+/*
+ * The following section concerns shared user modules and is thus only
+ * included if we built with libtool and libltdl.
+ *
+ * On BlueGene, we need to link user modules statically, but for convenience
+ * they still register themselves with the DyamicLoadModule during static
+ * initialization. On BlueGene, we then need to prevent that the modules are
+ * loaded a second time, therefore the guard below. At the same time, we
+ * need to create the DynamicLoaderModule, since the compiler might otherwise
+ * optimize DynamicLoaderModule::registerLinkedModule() away.
+ */
+#ifdef HAVE_LIBLTDL
+  // dynamic loader module for managing linked and dynamically loaded extension
+  // modules
+  nest::DynamicLoaderModule* pDynLoader =
+    new nest::DynamicLoaderModule( engine );
+
+// initialize all modules that were linked into at compile time
+// these modules have registered via calling DynamicLoader::registerLinkedModule
+// from their constructor
+#ifndef IS_BLUEGENE
+  pDynLoader->initLinkedModules( engine );
+
+  // interpreter will delete module on destruction
+  engine.addmodule( pDynLoader );
+#endif
+#endif
 
 #ifdef _IS_PYNEST
   // add the init-script to the list of module initializers
-  ArrayDatum* ad = dynamic_cast< ArrayDatum* >( engine.baselookup( engine.commandstring_name ).datum() );
-  assert( ad );
-  ad->push_back( new StringDatum( "(" + modulepath + "/pynest-init.sli) run" ) );
+  ArrayDatum* ad = dynamic_cast< ArrayDatum* >(
+    engine.baselookup( engine.commandstring_name ).datum() );
+  assert( ad != NULL );
+  ad->push_back(
+    new StringDatum( "(" + modulepath + "/pynest-init.sli) run" ) );
 #endif
 
   return engine.startup();
@@ -123,7 +190,6 @@ neststartup( int* argc, char*** argv, SLIInterpreter& engine, std::string module
 void
 nestshutdown( int exitcode )
 {
-  nest::kernel().finalize();
   nest::kernel().mpi_manager.mpi_finalize( exitcode );
   nest::KernelManager::destroy_kernel_manager();
 }
@@ -132,45 +198,15 @@ nestshutdown( int exitcode )
 Datum*
 CYTHON_unpackConnectionGeneratorDatum( PyObject* obj )
 {
-  Datum* ret = nullptr;
-  ConnectionGenerator* cg = nullptr;
+  Datum* ret = NULL;
+  ConnectionGenerator* cg = NULL;
 
   cg = PNS::unpackConnectionGenerator( obj );
-  if ( cg )
+  if ( cg != NULL )
   {
-    ret = static_cast< Datum* >( new ConnectionGeneratorDatum( cg ) );
+    ret = static_cast< Datum* >( new nest::ConnectionGeneratorDatum( cg ) );
   }
 
   return ret;
 }
 #endif
-
-#ifdef _IS_PYNEST
-#ifdef HAVE_MPI4PY
-
-#include <mpi4py/mpi4py.h>
-
-void
-set_communicator( PyObject* pyobj )
-{
-  import_mpi4py();
-
-  // If object is not a mpi4py communicator, bail
-  if ( not PyObject_TypeCheck( pyobj, &PyMPIComm_Type ) )
-  {
-    throw nest::KernelException( "set_communicator: argument is not a mpi4py communicator" );
-  }
-
-  nest::kernel().mpi_manager.set_communicator( *PyMPIComm_Get( pyobj ) );
-}
-
-#else // ! HAVE_MPI4PY
-
-void
-set_communicator( PyObject* )
-{
-  throw nest::KernelException( "set_communicator: NEST not compiled with MPI4PY" );
-}
-
-#endif
-#endif //_IS_PYNEST

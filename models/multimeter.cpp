@@ -24,62 +24,50 @@
 
 // Includes from nestkernel:
 #include "event_delivery_manager_impl.h"
-#include "model_manager_impl.h"
-#include "nest_impl.h"
-
-// Includes from libnestutil:
-#include "dict_util.h"
 
 namespace nest
 {
-void
-register_multimeter( const std::string& name )
-{
-  register_node_model< multimeter >( name );
-}
-
-void
-register_voltmeter( const std::string& name )
-{
-  register_node_model< voltmeter >( name );
-}
-
-
-multimeter::multimeter()
-  : RecordingDevice()
+Multimeter::Multimeter()
+  : DeviceNode()
+  , device_( *this, RecordingDevice::MULTIMETER, "dat", true, true )
   , P_()
+  , S_()
   , B_()
+  , V_()
 {
 }
 
-multimeter::multimeter( const multimeter& n )
-  : RecordingDevice( n )
+Multimeter::Multimeter( const Multimeter& n )
+  : DeviceNode( n )
+  , device_( *this, n.device_ )
   , P_( n.P_ )
+  , S_()
   , B_()
+  , V_()
 {
 }
 
-size_t
-multimeter::send_test_event( Node& target, size_t receptor_type, synindex, bool )
+port
+Multimeter::send_test_event( Node& target, rport receptor_type, synindex, bool )
 {
   DataLoggingRequest e( P_.interval_, P_.offset_, P_.record_from_ );
   e.set_sender( *this );
-  size_t p = target.handles_test_event( e, receptor_type );
-  if ( p != invalid_port and not is_model_prototype() )
+  port p = target.handles_test_event( e, receptor_type );
+  if ( p != invalid_port_ and not is_model_prototype() )
   {
     B_.has_targets_ = true;
   }
   return p;
 }
 
-nest::multimeter::Parameters_::Parameters_()
+nest::Multimeter::Parameters_::Parameters_()
   : interval_( Time::ms( 1.0 ) )
   , offset_( Time::ms( 0. ) )
   , record_from_()
 {
 }
 
-nest::multimeter::Parameters_::Parameters_( const Parameters_& p )
+nest::Multimeter::Parameters_::Parameters_( const Parameters_& p )
   : interval_( p.interval_ )
   , offset_( p.offset_ )
   , record_from_( p.record_from_ )
@@ -87,25 +75,13 @@ nest::multimeter::Parameters_::Parameters_( const Parameters_& p )
   interval_.calibrate();
 }
 
-nest::multimeter::Parameters_&
-nest::multimeter::Parameters_::operator=( const Parameters_& p )
-{
-  interval_ = p.interval_;
-  offset_ = p.offset_;
-  record_from_ = p.record_from_;
-  interval_.calibrate();
-
-  return *this;
-}
-
-
-nest::multimeter::Buffers_::Buffers_()
+nest::Multimeter::Buffers_::Buffers_()
   : has_targets_( false )
 {
 }
 
 void
-nest::multimeter::Parameters_::get( DictionaryDatum& d ) const
+nest::Multimeter::Parameters_::get( DictionaryDatum& d ) const
 {
   ( *d )[ names::interval ] = interval_.get_ms();
   ( *d )[ names::offset ] = offset_.get_ms();
@@ -118,10 +94,12 @@ nest::multimeter::Parameters_::get( DictionaryDatum& d ) const
 }
 
 void
-nest::multimeter::Parameters_::set( const DictionaryDatum& d, const Buffers_& b, Node* node )
+nest::Multimeter::Parameters_::set( const DictionaryDatum& d,
+  const Buffers_& b )
 {
   if ( b.has_targets_
-    and ( d->known( names::interval ) or d->known( names::offset ) or d->known( names::record_from ) ) )
+    && ( d->known( names::interval ) || d->known( names::offset )
+         || d->known( names::record_from ) ) )
   {
     throw BadProperty(
       "The recording interval, the interval offset and the list of properties "
@@ -129,26 +107,31 @@ nest::multimeter::Parameters_::set( const DictionaryDatum& d, const Buffers_& b,
       "to nodes." );
   }
 
-  double interval_ms;
-  if ( updateValueParam< double >( d, names::interval, interval_ms, node ) )
+  double v;
+  if ( updateValue< double >( d, names::interval, v ) )
   {
-    interval_ = Time( Time::ms( interval_ms ) );
-    if ( interval_ < Time::get_resolution() )
+    if ( Time( Time::ms( v ) ) < Time::get_resolution() )
     {
-      throw BadProperty( "The sampling interval must be at least as long as the simulation resolution." );
+      throw BadProperty(
+        "The sampling interval must be at least as long "
+        "as the simulation resolution." );
     }
 
+    // see if we can represent interval as multiple of step
+    interval_ = Time::step( Time( Time::ms( v ) ).get_steps() );
     if ( not interval_.is_multiple_of( Time::get_resolution() ) )
     {
-      throw BadProperty( "The sampling interval must be a multiple of the simulation resolution." );
+      throw BadProperty(
+        "The sampling interval must be a multiple of "
+        "the simulation resolution" );
     }
   }
 
-  if ( updateValueParam< double >( d, names::offset, interval_ms, node ) )
+  if ( updateValue< double >( d, names::offset, v ) )
   {
     // if offset is different from the default value (0), it must be at least
     // as large as the resolution
-    if ( interval_ms != 0 and Time( Time::ms( interval_ms ) ) < Time::get_resolution() )
+    if ( v != 0 && Time( Time::ms( v ) ) < Time::get_resolution() )
     {
       throw BadProperty(
         "The offset for the sampling interval must be at least as long as the "
@@ -156,7 +139,7 @@ nest::multimeter::Parameters_::set( const DictionaryDatum& d, const Buffers_& b,
     }
 
     // see if we can represent offset as multiple of step
-    offset_ = Time::step( Time( Time::ms( interval_ms ) ).get_steps() );
+    offset_ = Time::step( Time( Time::ms( v ) ).get_steps() );
     if ( not offset_.is_multiple_of( Time::get_resolution() ) )
     {
       throw BadProperty(
@@ -179,20 +162,48 @@ nest::multimeter::Parameters_::set( const DictionaryDatum& d, const Buffers_& b,
 }
 
 void
-multimeter::pre_run_hook()
+Multimeter::init_state_( const Node& np )
 {
-  RecordingDevice::pre_run_hook( P_.record_from_, RecordingBackend::NO_LONG_VALUE_NAMES );
+  const Multimeter& asd = dynamic_cast< const Multimeter& >( np );
+  device_.init_state( asd.device_ );
+  S_.data_.clear();
 }
 
 void
-multimeter::update( Time const& origin, const long from, const long )
+Multimeter::init_buffers_()
+{
+  device_.init_buffers();
+}
+
+void
+Multimeter::calibrate()
+{
+  device_.calibrate();
+  V_.new_request_ = false;
+  V_.current_request_data_start_ = 0;
+}
+
+void
+Multimeter::post_run_cleanup()
+{
+  device_.post_run_cleanup();
+}
+
+void
+Multimeter::finalize()
+{
+  device_.finalize();
+}
+
+void
+Multimeter::update( Time const& origin, const long from, const long )
 {
   /* There is nothing to request during the first time slice.
      For each subsequent slice, we collect all data generated during the
      previous slice if we are called at the beginning of the slice. Otherwise,
      we do nothing.
    */
-  if ( origin.get_steps() == 0 or from != 0 )
+  if ( origin.get_steps() == 0 || from != 0 )
   {
     return;
   }
@@ -203,16 +214,33 @@ multimeter::update( Time const& origin, const long from, const long )
   // ensures that the event is recorded.
   // handle() has access to request_, so it knows what we asked for.
   //
+  // Provided we are recording anything, V_.new_request_ is set to true. This
+  // informs handle() that the first incoming DataLoggingReply is for a new time
+  // slice, so that the data from that first Reply must be pushed back; all
+  // following Reply data is then added.
+  //
   // Note that not all nodes receiving the request will necessarily answer.
+  V_.new_request_ =
+    B_.has_targets_ && not P_.record_from_.empty(); // no targets, no request
   DataLoggingRequest req;
   kernel().event_delivery_manager.send( *this, req );
 }
 
 void
-multimeter::handle( DataLoggingReply& reply )
+Multimeter::handle( DataLoggingReply& reply )
 {
   // easy access to relevant information
   DataLoggingReply::Container const& info = reply.get_info();
+
+  // If this is the first Reply arriving, we need to mark the beginning of the
+  // data for this round of replies
+  if ( V_.new_request_ )
+  {
+    V_.current_request_data_start_ = S_.data_.size();
+  }
+
+  // count records that have been skipped during inactivity
+  size_t inactive_skipped = 0;
 
   // record all data, time point by time point
   for ( size_t j = 0; j < info.size(); ++j )
@@ -224,34 +252,105 @@ multimeter::handle( DataLoggingReply& reply )
 
     if ( not is_active( info[ j ].timestamp ) )
     {
+      ++inactive_skipped;
       continue;
     }
 
+    // store stamp for current data set in event for logging
     reply.set_stamp( info[ j ].timestamp );
 
-    write( reply, info[ j ].data, RecordingBackend::NO_LONG_VALUES );
+    // record sender and time information; in accumulator mode only for first
+    // Reply in slice
+    if ( not device_.to_accumulator() || V_.new_request_ )
+    {
+      device_.record_event( reply, false ); // false: more data to come
+    }
+
+    if ( not device_.to_accumulator() )
+    {
+      // "print" actual data, but not in accumulator mode
+      print_value_( info[ j ].data );
+
+      if ( device_.to_memory() )
+      {
+        S_.data_.push_back( info[ j ].data );
+      }
+    }
+    else
+    {
+      if ( V_.new_request_ ) // first reply in slice, push back to create new
+                             // time points
+      {
+        S_.data_.push_back( info[ j ].data );
+      }
+      else
+      { // add data; offset j from current_request_data_start_, but inactive
+        // skipped entries subtracted
+        assert( j >= inactive_skipped );
+        assert( V_.current_request_data_start_ + j - inactive_skipped
+          < S_.data_.size() );
+        assert( S_.data_[ V_.current_request_data_start_ + j
+                     - inactive_skipped ].size() == info[ j ].data.size() );
+
+        for ( size_t k = 0; k < info[ j ].data.size(); ++k )
+        {
+          S_.data_[ V_.current_request_data_start_ + j
+            - inactive_skipped ][ k ] += info[ j ].data[ k ];
+        }
+      }
+    }
+  }
+
+  // correct either we are done with the first reply or any later one
+  V_.new_request_ = false;
+}
+
+void
+Multimeter::print_value_( const std::vector< double >& values )
+{
+  if ( values.size() < 1 )
+  {
+    return;
+  }
+
+  for ( size_t j = 0; j < values.size() - 1; ++j )
+  {
+    device_.print_value( values[ j ], false );
+  }
+
+  device_.print_value( values[ values.size() - 1 ] );
+}
+
+
+void
+Multimeter::add_data_( DictionaryDatum& d ) const
+{
+  // re-organize data into one vector per recorded variable
+  for ( size_t v = 0; v < P_.record_from_.size(); ++v )
+  {
+    std::vector< double > dv( S_.data_.size() );
+    for ( size_t t = 0; t < S_.data_.size(); ++t )
+    {
+      assert( v < S_.data_[ t ].size() );
+      dv[ t ] = S_.data_[ t ][ v ];
+    }
+    initialize_property_doublevector( d, P_.record_from_[ v ] );
+    if ( device_.to_accumulator() && not dv.empty() )
+    {
+      accumulate_property( d, P_.record_from_[ v ], dv );
+    }
+    else
+    {
+      append_property( d, P_.record_from_[ v ], dv );
+    }
   }
 }
 
-RecordingDevice::Type
-multimeter::get_type() const
+bool
+Multimeter::is_active( Time const& T ) const
 {
-  return RecordingDevice::MULTIMETER;
-}
+  const long stamp = T.get_steps();
 
-voltmeter::voltmeter()
-  : multimeter()
-{
-  DictionaryDatum vmdict = DictionaryDatum( new Dictionary );
-  ArrayDatum ad;
-  ad.push_back( LiteralDatum( names::V_m.toString() ) );
-  ( *vmdict )[ names::record_from ] = ad;
-  set_status( vmdict );
+  return device_.get_t_min_() < stamp && stamp <= device_.get_t_max_();
 }
-
-voltmeter::voltmeter( const voltmeter& n )
-  : multimeter( n )
-{
 }
-
-} // namespace nest

@@ -44,130 +44,130 @@ class SLIArrayModule : public SLIModule
   class MapFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class IMapFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
-    void backtrace( SLIInterpreter*, int ) const override;
+    void execute( SLIInterpreter* ) const;
+    void backtrace( SLIInterpreter*, int ) const;
   };
   class IMap_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
-    void backtrace( SLIInterpreter*, int ) const override;
+    void execute( SLIInterpreter* ) const;
+    void backtrace( SLIInterpreter*, int ) const;
   };
   class IMap_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
-    void backtrace( SLIInterpreter*, int ) const override;
+    void execute( SLIInterpreter* ) const;
+    void backtrace( SLIInterpreter*, int ) const;
   };
   class MapThreadFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class IMapThreadFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
-    void backtrace( SLIInterpreter*, int ) const override;
+    void execute( SLIInterpreter* ) const;
+    void backtrace( SLIInterpreter*, int ) const;
   };
 
   class MapIndexedFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class IMapIndexedFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
-    void backtrace( SLIInterpreter*, int ) const override;
+    void execute( SLIInterpreter* ) const;
+    void backtrace( SLIInterpreter*, int ) const;
   };
 
   class RangeFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class ArraystoreFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class ArrayloadFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class ArraycreateFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class ReverseFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class RotateFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class FlattenFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class SortFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class UniqueFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class TransposeFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
 
   class PartitionFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class ValidFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Put_a_a_tFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   /**
@@ -207,7 +207,7 @@ class SLIArrayModule : public SLIModule
   class AreaFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   /**
@@ -245,31 +245,31 @@ class SLIArrayModule : public SLIModule
   class Area2Function : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Cv1dFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Cv2dFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class GetMaxFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class GetMinFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
 
@@ -283,7 +283,7 @@ class SLIArrayModule : public SLIModule
     {
     }
 
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   /**
@@ -296,7 +296,7 @@ class SLIArrayModule : public SLIModule
     {
     }
 
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
 
@@ -310,7 +310,7 @@ class SLIArrayModule : public SLIModule
     Array2IntVectorFunction()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   /**
@@ -323,7 +323,7 @@ class SLIArrayModule : public SLIModule
     Array2DoubleVectorFunction()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class DoubleVector2ArrayFunction : public SLIFunction
@@ -332,7 +332,7 @@ class SLIArrayModule : public SLIModule
     DoubleVector2ArrayFunction()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class IntVector2ArrayFunction : public SLIFunction
@@ -341,167 +341,167 @@ class SLIArrayModule : public SLIModule
     IntVector2ArrayFunction()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Add_iv_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Add_i_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Neg_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Sub_iv_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Mul_iv_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Mul_i_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Mul_d_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Div_iv_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Add_dv_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Add_d_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Sub_dv_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Mul_dv_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Mul_d_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Div_dv_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Neg_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Inv_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Length_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Length_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Get_iv_iFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Get_iv_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Get_dv_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Get_dv_iFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Put_dv_i_dFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Put_iv_i_iFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Zeros_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Zeros_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Ones_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
   class Ones_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class ArangeFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   /**
@@ -515,46 +515,46 @@ class SLIArrayModule : public SLIModule
     FiniteQ_dFunction()
     {
     }
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Forall_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Forall_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Iforall_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
-    void backtrace( SLIInterpreter*, int ) const override;
+    void execute( SLIInterpreter* ) const;
+    void backtrace( SLIInterpreter*, int ) const;
   };
 
   class Iforall_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
-    void backtrace( SLIInterpreter*, int ) const override;
+    void execute( SLIInterpreter* ) const;
+    void backtrace( SLIInterpreter*, int ) const;
   };
 
 
   class Eq_dvFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class Eq_ivFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   /** @} */
@@ -636,9 +636,9 @@ public:
   {
   }
 
-  void init( SLIInterpreter* ) override;
-  const std::string commandstring() const override;
-  const std::string name() const override;
+  void init( SLIInterpreter* );
+  const std::string commandstring( void ) const;
+  const std::string name( void ) const;
 };
 
 

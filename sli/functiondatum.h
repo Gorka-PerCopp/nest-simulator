@@ -56,22 +56,22 @@ class FunctionDatum : public TypedDatum< &SLIInterpreter::Functiontype >
   bool deprecation_warning_issued_;
 
   Datum*
-  clone() const override
+  clone( void ) const
   {
     return new FunctionDatum( *this );
   }
 
   Datum*
-  get_ptr() override
+  get_ptr()
   {
     Datum::addReference();
     return this;
   }
 
-  SLIFunction const&
-  operator=( SLIFunction const& f )
+  SLIFunction const& operator=( SLIFunction const& f )
   {
-    std::cerr << "Warning: Definition of FunctionDatum (" << name << ") changed!!\n";
+    std::cerr << "Warning: Definition of FunctionDatum (" << name
+              << ") changed!!\n";
 
     action = &f;
     return f;
@@ -87,7 +87,9 @@ public:
     set_executable();
   }
 
-  FunctionDatum( Name const& n, SLIFunction const* f, const std::string& deprecation_info )
+  FunctionDatum( Name const& n,
+    SLIFunction const* f,
+    const std::string& deprecation_info )
     : TypedDatum< &SLIInterpreter::Functiontype >()
     , name( n )
     , deprecation_info_( deprecation_info )
@@ -101,13 +103,14 @@ public:
   }
 
   void
-  execute( SLIInterpreter* i ) override
+  execute( SLIInterpreter* i )
   {
     if ( not( deprecation_warning_issued_ or deprecation_info_.empty() ) )
     {
       i->message( SLIInterpreter::M_DEPRECATED,
         "SLIInterpreter",
-        ( "SLI function " + name.toString() + " is deprecated in " + deprecation_info_ + "." ).c_str() );
+        ( "SLI function " + name.toString() + " is deprecated in "
+          + deprecation_info_ + "." ).c_str() );
       deprecation_warning_issued_ = true;
     }
 
@@ -115,29 +118,30 @@ public:
   }
 
   void
-  print( std::ostream& o ) const override
+  print( std::ostream& o ) const
   {
     o << '-' << name << '-';
   }
 
   void
-  pprint( std::ostream& o ) const override
+  pprint( std::ostream& o ) const
   {
     print( o );
   }
 
   void
-  info( std::ostream& out ) const override
+  info( std::ostream& out ) const
   {
     out << "FunctionDatum::info\n";
     out << "name = " << name << std::endl;
   }
 
   bool
-  equals( Datum const* dat ) const override
+  equals( Datum const* dat ) const
   {
-    const FunctionDatum* fd = dynamic_cast< FunctionDatum* >( const_cast< Datum* >( dat ) );
-    if ( not fd )
+    const FunctionDatum* fd =
+      dynamic_cast< FunctionDatum* >( const_cast< Datum* >( dat ) );
+    if ( fd == NULL )
     {
       return false;
     }
@@ -146,15 +150,14 @@ public:
   }
 
   const Name&
-  getname() const
+  getname( void ) const
   {
     return name;
   }
 
   void backtrace( SLIInterpreter*, int ) const;
 
-  static void*
-  operator new( size_t size )
+  static void* operator new( size_t size )
   {
     if ( size != sizeof( FunctionDatum ) )
     {
@@ -163,10 +166,9 @@ public:
     return memory.alloc();
   }
 
-  static void
-  operator delete( void* p, size_t size )
+  static void operator delete( void* p, size_t size )
   {
-    if ( not p )
+    if ( p == NULL )
     {
       return;
     }

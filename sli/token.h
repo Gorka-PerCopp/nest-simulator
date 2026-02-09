@@ -68,85 +68,7 @@ Datum *const p;   makes p a const pointer to a Datum. Any change to the
 /***********************************************************/
 
 /** A type-independent container for C++-types.
- *
- * Class Token is a wrapper class around Datum pointers and non-Datum
- * objects. In fact, since Datum objects have a memory manager, we should
- * avoid creating Datum objects on the stack as local variables. Class
- * Token takes ownership of the Datum pointers and will properly delete
- * them when they are no longer needed. Thus, use one of the following
- * idioms:
- *
- * @par Construction
- *
- * @code
- * Token t( new IntergerDatum( 5 ) );
- * Token t = 5;
- * Token t = new IntegerDatum( 5 );
- * @endcode
- *
- * The object constructor `Token(Datum&)` is historic and should not be
- * used anymore.
- *
- * @par Assignment
- *
- * @code
- * Token t1 = t;
- * t1.move( t ); // move Datum from t to t1
- * @endcode
- *
- * `TokenArrays`, `TokenStack`, and `Dictionary` are token
- * containers. Their assignment interface takes
- *
- * 1. Datum pointers
- * 2. Token references
- *
- * Thus, the recommended assignments are
- *
- * @code
- * array.push_back( new IntegerDatum( 5 ) );
- * @endcode
- *
- * It directly passes the Datum pointer to the location in the
- * array. Some convenient ways to write assignments are actually
- * inefficient.
- *
- * @par Examples
- *
- * 1. `a.push_back(5);`
- *
- *    This is convenient notation, but it is much more expensive because it is
- *    equivalent to the following code:
- *    .
- *    @code
- *    IntegerDatum tmp1( 5 );
- *    Token tmp2( new IntegerDatum( mp1 ) );
- *    Token tmp3( tmp2 );  // one more Datum copy
- *    a.push_back_move( tmp3 );
- *    @endcode
- *
- *    The compiler can optimize away some of the inefficiencies, but benchmarks showed a
- *    big residual overhead compared to directly assigning the Datum
- *    pointer.
- *
- * 2. `a.push_back(IntegerDatum(5));`
- *
- *    This looks efficient, but in fact it is not, because it is equivalent
- *    to:
- *    .
- *    @code
- *    Token tmp1( new IntegerDatum( IntegerDatum( 5 ) );
- *    a.push_back_move( tmp1 );
- *    @endcode
- *
- * 3. `a.push_back(t);`
- *
- *    Involves one Datum copy
- *
- * 4. `a.push_back_move(t);`
- *
- *    Moves the pointer and leaves a void token behind.
- *
- * @ingroup TokenHandling
+ *  @ingroup TokenHandling
  */
 class Token
 {
@@ -168,11 +90,11 @@ public:
     {
       p->removeReference();
     }
-    p = nullptr;
+    p = 0;
   }
 
   Token( const Token& c_s )
-    : p( nullptr )
+    : p( NULL )
   {
     if ( c_s.p )
     {
@@ -184,7 +106,7 @@ public:
   /**
    * use existing pointer to datum, token takes responsibility of the pointer.
    */
-  Token( Datum* p_s = nullptr )
+  Token( Datum* p_s = NULL )
     : p( p_s )
   {
   }
@@ -199,20 +121,23 @@ public:
   Token( long );
   Token( bool );
   Token( unsigned long );
-#ifdef HAVE_32BIT_ARCH
-  Token( uint64_t );
-#endif
   Token( double );
   Token( const char* );
   Token( std::string );
   Token( const std::vector< double >& );
   Token( const std::vector< long >& );
   Token( const std::vector< size_t >& );
+  Token( const std::ostream& );
+  Token( const std::istream& );
+  operator Datum*() const;
   operator size_t() const;
   operator long() const;
   operator double() const;
+  operator float() const;
   operator bool() const;
   operator std::string() const;
+  //  operator vector<double> const;
+  //  operator vector<long> const;
 
   /**
    * If the contained datum has more than one reference, clone it, so it can
@@ -236,7 +161,7 @@ public:
       p->removeReference();
     }
     p = c.p;
-    c.p = nullptr;
+    c.p = NULL;
   }
 
 
@@ -251,7 +176,7 @@ public:
   init_move( Token& rhs )
   {
     p = rhs.p;
-    rhs.p = nullptr;
+    rhs.p = NULL;
   }
 
   /**
@@ -312,7 +237,7 @@ public:
   void
   assign_by_pointer( Datum* rhs )
   {
-    assert( rhs );
+    assert( rhs != NULL );
     rhs->addReference();
     if ( p )
     {
@@ -329,35 +254,34 @@ public:
   }
 
   void
-  clear()
+  clear( void )
   {
     if ( p )
     {
       p->removeReference();
     }
-    p = nullptr;
+    p = NULL;
   }
 
   bool
   contains( const Datum& d ) const
   {
-    return p and p->equals( &d );
+    return ( p != NULL ) ? p->equals( &d ) : false;
   }
 
   bool
-  empty() const
+  empty( void ) const
   {
-    return not p;
+    return p == NULL;
   }
 
-  bool
-  operator not() const
+  bool operator not( void ) const
   {
-    return not p;
+    return p == NULL;
   }
 
   Datum*
-  datum() const
+  datum( void ) const
   {
     accessed_ = true;
     return p;
@@ -370,36 +294,35 @@ public:
     return not empty();
   }
 
-  Datum*
-  operator->() const
+  Datum* operator->() const
   {
+    //      assert(p!= NULL);
     return p;
   }
 
 
-  Datum&
-  operator*() const
+  Datum& operator*() const
   {
+    //      assert(p != NULL);
     return *p;
   }
 
 
   const std::type_info&
-  type() const
+  type( void ) const
   {
     return typeid( *p );
   }
 
 
-  Token&
-  operator=( const Token& c_s )
+  Token& operator=( const Token& c_s )
   {
     if ( c_s.p == p )
     {
       return *this;
     }
 
-    if ( not c_s.p )
+    if ( c_s.p == NULL )
     {
       clear();
       return *this;
@@ -413,8 +336,7 @@ public:
     return *this;
   }
 
-  Token&
-  operator=( Datum* p_s )
+  Token& operator=( Datum* p_s )
   {
     if ( p != p_s )
     {
@@ -429,8 +351,7 @@ public:
   }
 
 
-  bool
-  operator==( const Token& t ) const
+  bool operator==( const Token& t ) const
   {
     if ( p == t.p )
     {
@@ -441,8 +362,7 @@ public:
   }
 
   // define != explicitly --- HEP 2001-08-09
-  bool
-  operator!=( const Token& t ) const
+  bool operator!=( const Token& t ) const
   {
     return not( *this == t );
   }

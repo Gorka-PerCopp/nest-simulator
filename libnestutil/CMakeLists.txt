@@ -18,35 +18,30 @@
 # along with NEST.  If not, see <http://www.gnu.org/licenses/>.
 
 set( nestutil_sources
-    beta_normalization_factor.h
-    block_vector.h
-    dict_util.h
-    enum_bitfield.h
-    iaf_propagator.h iaf_propagator.cpp
-    iterator_pair.h
-    lockptr.h
-    logging_event.h logging_event.cpp
-    logging.h
-    nest_types.h
+    stopwatch.h stopwatch.cpp
     numerics.h numerics.cpp
-    regula_falsi.h
-    sort.h
+    propagator_stability.h propagator_stability.cpp
+    lockptr.h
+    compose.hpp
     string_utils.h
+    sort.h
+    logging.h
+    logging_event.h logging_event.cpp
     vector_util.h
     )
 
-add_library( nestutil STATIC ${nestutil_sources} )
+add_library( nestutil ${nestutil_sources} )
 
-set_target_properties( nestutil
-    PROPERTIES
-    POSITION_INDEPENDENT_CODE ON
-    )
-
-target_link_libraries( nestutil ${GSL_LIBRARIES} ${SIONLIB_LIBS} )
+target_link_libraries( nestutil ${GSL_LIBRARIES} )
 
 target_include_directories( nestutil PRIVATE
     ${PROJECT_BINARY_DIR}/libnestutil
-    ${Boost_INCLUDE_DIRS}
+    )
+
+install( TARGETS nestutil
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 
 FILTER_HEADERS("${nestutil_sources}" install_headers )

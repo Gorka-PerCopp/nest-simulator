@@ -23,16 +23,12 @@ set( TESTSUBDIRS
     regressiontests
     mpitests
     mpi_selftests
-    musictests
-    cpptests
-    pytests
-)
+    musictests )
 
+# add sli tests
 add_subdirectory( selftests )
 add_subdirectory( unittests )
-add_subdirectory( unittests/sli2py_ignore )
 add_subdirectory( regressiontests )
-add_subdirectory( regressiontests/sli2py_ignore )
 add_subdirectory( mpi_selftests/fail )
 add_subdirectory( mpi_selftests/pass )
 add_subdirectory( mpitests )
@@ -40,20 +36,9 @@ add_subdirectory( musictests )
 add_subdirectory( cpptests )
 
 install( DIRECTORY ${TESTSUBDIRS}
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/testsuite
-)
+    DESTINATION ${CMAKE_INSTALL_DOCDIR}
+    )
 
-install( PROGRAMS
-    do_tests.sh
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/testsuite
-)
-
-install( PROGRAMS
-    nest_indirect
-    nest_serial
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-install( FILES junit_xml.sh run_test.sh summarize_tests.py
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/testsuite
-)
+install( PROGRAMS ${PROJECT_BINARY_DIR}/testsuite/do_tests.sh
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/extras
+    )

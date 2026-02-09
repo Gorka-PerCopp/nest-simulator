@@ -22,20 +22,8 @@
 
 #include "erfc_neuron.h"
 
-// Includes from nestkernel
-#include "kernel_manager.h"
-#include "model_manager_impl.h"
-#include "nest_impl.h"
-#include "universal_data_logger_impl.h"
-
 namespace nest
 {
-void
-register_erfc_neuron( const std::string& name )
-{
-  register_node_model< erfc_neuron >( name );
-}
-
 
 void
 gainfunction_erfc::get( DictionaryDatum& d ) const
@@ -45,10 +33,10 @@ gainfunction_erfc::get( DictionaryDatum& d ) const
 }
 
 void
-gainfunction_erfc::set( const DictionaryDatum& d, Node* node )
+gainfunction_erfc::set( const DictionaryDatum& d )
 {
-  updateValueParam< double >( d, names::theta, theta_, node );
-  updateValueParam< double >( d, names::sigma, sigma_, node );
+  updateValue< double >( d, names::theta, theta_ );
+  updateValue< double >( d, names::sigma, sigma_ );
 }
 
 /*
@@ -59,7 +47,7 @@ template <>
 void
 RecordablesMap< nest::erfc_neuron >::create()
 {
-  // use standard names wherever you can for consistency!
+  // use standard names whereever you can for consistency!
   insert_( names::S, &nest::erfc_neuron::get_output_state__ );
   insert_( names::h, &nest::erfc_neuron::get_input__ );
 }

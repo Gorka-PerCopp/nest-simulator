@@ -153,3 +153,6 @@ close ofile;
 
 
 system ("gnuplot ArtificialSynchrony.gnu > ArtificialSynchrony.ps && gv ArtificialSynchrony.ps");       # Create plot and show it
+
+
+

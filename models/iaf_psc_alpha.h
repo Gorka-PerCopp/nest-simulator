@@ -32,185 +32,104 @@
 #include "ring_buffer.h"
 #include "universal_data_logger.h"
 
+/* BeginDocumentation
+Name: iaf_psc_alpha - Leaky integrate-and-fire neuron model.
+
+Description:
+
+  iaf_psc_alpha is an implementation of a leaky integrate-and-fire model
+  with alpha-function shaped synaptic currents. Thus, synaptic currents
+  and the resulting post-synaptic potentials have a finite rise time.
+
+  The threshold crossing is followed by an absolute refractory period
+  during which the membrane potential is clamped to the resting potential.
+
+  The linear subthresold dynamics is integrated by the Exact
+  Integration scheme [1]. The neuron dynamics is solved on the time
+  grid given by the computation step size. Incoming as well as emitted
+  spikes are forced to that grid.
+
+  An additional state variable and the corresponding differential
+  equation represents a piecewise constant external current.
+
+  The general framework for the consistent formulation of systems with
+  neuron like dynamics interacting by point events is described in
+  [1].  A flow chart can be found in [2].
+
+  Critical tests for the formulation of the neuron model are the
+  comparisons of simulation results for different computation step
+  sizes. sli/testsuite/nest contains a number of such tests.
+
+  The iaf_psc_alpha is the standard model used to check the consistency
+  of the nest simulation kernel because it is at the same time complex
+  enough to exhibit non-trivial dynamics and simple enough compute
+  relevant measures analytically.
+
+Remarks:
+
+  The present implementation uses individual variables for the
+  components of the state vector and the non-zero matrix elements of
+  the propagator.  Because the propagator is a lower triangular matrix
+  no full matrix multiplication needs to be carried out and the
+  computation can be done "in place" i.e. no temporary state vector
+  object is required.
+
+  The template support of recent C++ compilers enables a more succinct
+  formulation without loss of runtime performance already at minimal
+  optimization levels. A future version of iaf_psc_alpha will probably
+  address the problem of efficient usage of appropriate vector and
+  matrix objects.
+
+
+Parameters:
+
+  The following parameters can be set in the status dictionary.
+
+  V_m        double - Membrane potential in mV
+  E_L        double - Resting membrane potential in mV.
+  C_m        double - Capacity of the membrane in pF
+  tau_m      double - Membrane time constant in ms.
+  t_ref      double - Duration of refractory period in ms.
+  V_th       double - Spike threshold in mV.
+  V_reset    double - Reset potential of the membrane in mV.
+  tau_syn_ex double - Rise time of the excitatory synaptic alpha function in ms.
+  tau_syn_in double - Rise time of the inhibitory synaptic alpha function in ms.
+  I_e        double - Constant external input current in pA.
+  V_min      double - Absolute lower value for the membrane potential.
+
+Remarks:
+
+  If tau_m is very close to tau_syn_ex or tau_syn_in, the model
+  will numerically behave as if tau_m is equal to tau_syn_ex or
+  tau_syn_in, respectively, to avoid numerical instabilities.
+  For details, please see IAF_neurons_singularity.ipynb in
+  the NEST source code (docs/model_details).
+
+References:
+  [1] Rotter S & Diesmann M (1999) Exact simulation of time-invariant linear
+      systems with applications to neuronal modeling. Biologial Cybernetics
+      81:381-402.
+  [2] Diesmann M, Gewaltig M-O, Rotter S, & Aertsen A (2001) State space
+      analysis of synchronous spiking in cortical neural networks.
+      Neurocomputing 38-40:565-571.
+  [3] Morrison A, Straube S, Plesser H E, & Diesmann M (2006) Exact subthreshold
+      integration with continuous spike times in discrete time neural network
+      simulations. Neural Computation, in press
+
+Sends: SpikeEvent
+
+Receives: SpikeEvent, CurrentEvent, DataLoggingRequest
+FirstVersion: September 1999
+Author:  Diesmann, Gewaltig
+SeeAlso: iaf_psc_delta, iaf_psc_exp, iaf_cond_exp
+*/
+
 namespace nest
 {
-// Disable clang-formatting for documentation due to over-wide table.
-// clang-format off
-/* BeginUserDocs: neuron, integrate-and-fire, current-based, hard threshold
-
-Short description
-+++++++++++++++++
-
-Leaky integrate-and-fire model with alpha-shaped input currents
-
-Description
-+++++++++++
-
-``iaf_psc_alpha`` is a leaky integrate-and-fire neuron model with
-
-* a hard threshold,
-* a fixed refractory period,
-* no adaptation mechanisms,
-* :math:`\alpha`-shaped synaptic input currents.
-
-Membrane potential evolution, spike emission, and refractoriness
-................................................................
-
-The membrane potential evolves according to
-
-.. math::
-
-   \frac{dV_\text{m}}{dt} = -\frac{V_{\text{m}} - E_\text{L}}{\tau_{\text{m}}} + \frac{I_{\text{syn}} + I_\text{e}}{C_{\text{m}}}
-
-where the synaptic input current :math:`I_{\text{syn}}(t)` is discussed below and :math:`I_\text{e}` is
-a constant input current set as a model parameter.
-
-A spike is emitted at time step :math:`t^*=t_{k+1}` if
-
-.. math::
-
-   V_\text{m}(t_k) < V_{th} \quad\text{and}\quad V_\text{m}(t_{k+1})\geq V_\text{th} \;.
-
-Subsequently,
-
-.. math::
-
-   V_\text{m}(t) = V_{\text{reset}} \quad\text{for}\quad t^* \leq t < t^* + t_{\text{ref}} \;,
-
-that is, the membrane potential is clamped to :math:`V_{\text{reset}}` during the refractory period.
-
-Synaptic input
-..............
-
-The synaptic input current has an excitatory and an inhibitory component
-
-.. math::
-
-   I_{\text{syn}}(t) = I_{\text{syn, ex}}(t) + I_{\text{syn, in}}(t)
-
-where
-
-.. math::
-
-   I_{\text{syn, X}}(t) = \sum_{j} w_j \sum_k i_{\text{syn, X}}(t-t_j^k-d_j) \;,
-
-where :math:`j` indexes either excitatory (:math:`\text{X} = \text{ex}`)
-or inhibitory (:math:`\text{X} = \text{in}`) presynaptic neurons,
-:math:`k` indexes the spike times of neuron :math:`j`, and :math:`d_j`
-is the delay from neuron :math:`j`.
-
-The individual post-synaptic currents (PSCs) are given by
-
-.. math::
-
-   i_{\text{syn, X}}(t) = \frac{e}{\tau_{\text{syn, X}}} t e^{-\frac{t}{\tau_{\text{syn, X}}}} \Theta(t)
-
-where :math:`\Theta(x)` is the Heaviside step function. The PSCs are normalized to unit maximum, that is,
-
-.. math::
-
-   i_{\text{syn, X}}(t= \tau_{\text{syn, X}}) = 1 \;.
-
-As a consequence, the total charge :math:`q` transferred by a single PSC depends
-on the synaptic time constant according to
-
-.. math::
-
-   q = \int_0^{\infty}  i_{\text{syn, X}}(t) dt = e \tau_{\text{syn, X}} \;.
-
-By default, :math:`V_\text{m}` is not bounded from below. To limit
-hyperpolarization to biophysically plausible values, set parameter
-:math:`V_{\text{min}}` as lower bound of :math:`V_\text{m}`.
-
-.. note::
-
-   NEST uses exact integration [1]_, [2]_ to integrate subthreshold membrane
-   dynamics with maximum precision; see also [3]_.
-
-   If :math:`\tau_\text{m}\approx \tau_{\text{syn, ex}}` or
-   :math:`\tau_\text{m}\approx \tau_{\text{syn, in}}`, the model will
-   numerically behave as if :math:`\tau_\text{m} = \tau_{\text{syn, ex}}` or
-   :math:`\tau_\text{m} = \tau_{\text{syn, in}}`, respectively, to avoid
-   numerical instabilities.
-
-   For implementation details see the
-   `IAF Integration Singularity notebook <../model_details/IAF_Integration_Singularity.ipynb>`_.
-
-
-Parameters
-++++++++++
-
-The following parameters can be set in the status dictionary.
-
-=============== ================== =============================== ========================================================================
-**Parameter**   **Default**        **Math equivalent**             **Description**
-=============== ================== =============================== ========================================================================
-``E_L``         -70 mV             :math:`E_\text{L}`              Resting membrane potential
-``C_m``         250 pF             :math:`C_{\text{m}}`            Capacity of the membrane
-``tau_m``       10 ms              :math:`\tau_{\text{m}}`         Membrane time constant
-``t_ref``       2 ms               :math:`t_{\text{ref}}`          Duration of refractory period
-``V_th``        -55 mV             :math:`V_{\text{th}}`           Spike threshold
-``V_reset``     -70 mV             :math:`V_{\text{reset}}`        Reset potential of the membrane
-``tau_syn_ex``  2 ms               :math:`\tau_{\text{syn, ex}}`   Rise time of the excitatory synaptic alpha function
-``tau_syn_in``  2 ms               :math:`\tau_{\text{syn, in}}`   Rise time of the inhibitory synaptic alpha function
-``I_e``         0 pA               :math:`I_\text{e}`              Constant input current
-``V_min``       :math:`-\infty` mV :math:`V_{\text{min}}`          Absolute lower value for the membrane potential
-=============== ================== =============================== ========================================================================
-
-The following state variables evolve during simulation and are available either as neuron properties or as recordables.
-
-================== ================= ========================== =================================
-**State variable** **Initial value** **Math equivalent**        **Description**
-================== ================= ========================== =================================
-``V_m``            -70 mV            :math:`V_{\text{m}}`       Membrane potential
-``I_syn_ex``       0 pA              :math:`I_{\text{syn, ex}}` Excitatory synaptic input current
-``I_syn_in``       0 pA              :math:`I_{\text{syn, in}}` Inhibitory synaptic input current
-================== ================= ========================== =================================
-
-
-References
-++++++++++
-
-.. [1] Rotter S,  Diesmann M (1999). Exact simulation of
-       time-invariant linear systems with applications to neuronal
-       modeling. Biologial Cybernetics 81:381-402.
-       DOI: https://doi.org/10.1007/s004220050570
-.. [2] Diesmann M, Gewaltig M-O, Rotter S, & Aertsen A (2001). State
-       space analysis of synchronous spiking in cortical neural
-       networks. Neurocomputing 38-40:565-571.
-       DOI: https://doi.org/10.1016/S0925-2312(01)00409-X
-.. [3] Morrison A, Straube S, Plesser H E, Diesmann M (2006). Exact
-       subthreshold integration with continuous spike times in discrete time
-       neural network simulations. Neural Computation, in press
-       DOI: https://doi.org/10.1162/neco.2007.19.1.47
-
-Sends
-+++++
-
-SpikeEvent
-
-Receives
-++++++++
-
-SpikeEvent, CurrentEvent, DataLoggingRequest
-
-See also
-++++++++
-
-iaf_psc_delta, iaf_psc_exp, iaf_cond_exp
-
-
-Examples using this model
-+++++++++++++++++++++++++
-
-.. listexamples:: iaf_psc_alpha
-
-EndUserDocs */
-// clang-format on
-
-void register_iaf_psc_alpha( const std::string& name );
-
-class iaf_psc_alpha : public ArchivingNode
+/**
+ * Leaky integrate-and-fire neuron with alpha-shaped PSCs.
+ */
+class iaf_psc_alpha : public Archiving_Node
 {
 
 public:
@@ -225,24 +144,25 @@ public:
   using Node::handle;
   using Node::handles_test_event;
 
-  size_t send_test_event( Node&, size_t, synindex, bool ) override;
+  port send_test_event( Node&, rport, synindex, bool );
 
-  void handle( SpikeEvent& ) override;
-  void handle( CurrentEvent& ) override;
-  void handle( DataLoggingRequest& ) override;
+  void handle( SpikeEvent& );
+  void handle( CurrentEvent& );
+  void handle( DataLoggingRequest& );
 
-  size_t handles_test_event( SpikeEvent&, size_t ) override;
-  size_t handles_test_event( CurrentEvent&, size_t ) override;
-  size_t handles_test_event( DataLoggingRequest&, size_t ) override;
+  port handles_test_event( SpikeEvent&, rport );
+  port handles_test_event( CurrentEvent&, rport );
+  port handles_test_event( DataLoggingRequest&, rport );
 
-  void get_status( DictionaryDatum& ) const override;
-  void set_status( const DictionaryDatum& ) override;
+  void get_status( DictionaryDatum& ) const;
+  void set_status( const DictionaryDatum& );
 
 private:
-  void init_buffers_() override;
-  void pre_run_hook() override;
+  void init_state_( const Node& proto );
+  void init_buffers_();
+  void calibrate();
 
-  void update( Time const&, const long, const long ) override;
+  void update( Time const&, const long, const long );
 
   // The next two classes need to be friends to access the State_ class/member
   friend class RecordablesMap< iaf_psc_alpha >;
@@ -252,6 +172,7 @@ private:
 
   struct Parameters_
   {
+
     /** Membrane time constant in ms. */
     double Tau_;
 
@@ -291,13 +212,14 @@ private:
     /** Set values from dictionary.
      * @returns Change in reversal potential E_L, to be passed to State_::set()
      */
-    double set( const DictionaryDatum&, Node* node );
+    double set( const DictionaryDatum& );
   };
 
   // ----------------------------------------------------------------
 
   struct State_
   {
+
     double y0_; //!< Constant current
     double dI_ex_;
     double I_ex_;
@@ -317,7 +239,7 @@ private:
      * @param current parameters
      * @param Change in reversal potential E_L specified by this dict
      */
-    void set( const DictionaryDatum&, const Parameters_&, double, Node* node );
+    void set( const DictionaryDatum&, const Parameters_&, double );
   };
 
   // ----------------------------------------------------------------
@@ -328,17 +250,10 @@ private:
     Buffers_( iaf_psc_alpha& );
     Buffers_( const Buffers_&, iaf_psc_alpha& );
 
-    //! Indices for access to different channels of input_buffer_
-    enum
-    {
-      SYN_IN = 0,
-      SYN_EX,
-      I0,
-      NUM_INPUT_CHANNELS
-    };
-
-    /** buffers and sums up incoming spikes/currents */
-    MultiChannelInputBuffer< NUM_INPUT_CHANNELS > input_buffer_;
+    /** buffers and summs up incoming spikes/currents */
+    RingBuffer ex_spikes_;
+    RingBuffer in_spikes_;
+    RingBuffer currents_;
 
     //! Logger for all analog data
     UniversalDataLogger< iaf_psc_alpha > logger_;
@@ -350,7 +265,7 @@ private:
   {
 
     /** Amplitude of the synaptic current.
-        This value is chosen such that a postsynaptic potential with
+        This value is chosen such that a post-synaptic potential with
         weight one has an amplitude of 1 mV.
      */
     double EPSCInitialValue_;
@@ -385,6 +300,18 @@ private:
   }
 
   inline double
+  get_weighted_spikes_ex_() const
+  {
+    return V_.weighted_spikes_ex_;
+  }
+
+  inline double
+  get_weighted_spikes_in_() const
+  {
+    return V_.weighted_spikes_in_;
+  }
+
+  inline double
   get_I_syn_ex_() const
   {
     return S_.I_ex_;
@@ -399,6 +326,7 @@ private:
   // Data members -----------------------------------------------------------
 
   /**
+   * @defgroup iaf_psc_alpha_data
    * Instances of private data structures for the different types
    * of data pertaining to the model.
    * @note The order of definitions is important for speed.
@@ -414,16 +342,19 @@ private:
   static RecordablesMap< iaf_psc_alpha > recordablesMap_;
 };
 
-inline size_t
-nest::iaf_psc_alpha::send_test_event( Node& target, size_t receptor_type, synindex, bool )
+inline port
+nest::iaf_psc_alpha::send_test_event( Node& target,
+  rport receptor_type,
+  synindex,
+  bool )
 {
   SpikeEvent e;
   e.set_sender( *this );
   return target.handles_test_event( e, receptor_type );
 }
 
-inline size_t
-iaf_psc_alpha::handles_test_event( SpikeEvent&, size_t receptor_type )
+inline port
+iaf_psc_alpha::handles_test_event( SpikeEvent&, rport receptor_type )
 {
   if ( receptor_type != 0 )
   {
@@ -432,8 +363,8 @@ iaf_psc_alpha::handles_test_event( SpikeEvent&, size_t receptor_type )
   return 0;
 }
 
-inline size_t
-iaf_psc_alpha::handles_test_event( CurrentEvent&, size_t receptor_type )
+inline port
+iaf_psc_alpha::handles_test_event( CurrentEvent&, rport receptor_type )
 {
   if ( receptor_type != 0 )
   {
@@ -442,8 +373,9 @@ iaf_psc_alpha::handles_test_event( CurrentEvent&, size_t receptor_type )
   return 0;
 }
 
-inline size_t
-iaf_psc_alpha::handles_test_event( DataLoggingRequest& dlr, size_t receptor_type )
+inline port
+iaf_psc_alpha::handles_test_event( DataLoggingRequest& dlr,
+  rport receptor_type )
 {
   if ( receptor_type != 0 )
   {
@@ -457,7 +389,7 @@ iaf_psc_alpha::get_status( DictionaryDatum& d ) const
 {
   P_.get( d );
   S_.get( d, P_ );
-  ArchivingNode::get_status( d );
+  Archiving_Node::get_status( d );
 
   ( *d )[ names::recordables ] = recordablesMap_.get_list();
 }
@@ -465,16 +397,16 @@ iaf_psc_alpha::get_status( DictionaryDatum& d ) const
 inline void
 iaf_psc_alpha::set_status( const DictionaryDatum& d )
 {
-  Parameters_ ptmp = P_;                       // temporary copy in case of errors
-  const double delta_EL = ptmp.set( d, this ); // throws if BadProperty
-  State_ stmp = S_;                            // temporary copy in case of errors
-  stmp.set( d, ptmp, delta_EL, this );         // throws if BadProperty
+  Parameters_ ptmp = P_;                 // temporary copy in case of errors
+  const double delta_EL = ptmp.set( d ); // throws if BadProperty
+  State_ stmp = S_;                      // temporary copy in case of errors
+  stmp.set( d, ptmp, delta_EL );         // throws if BadProperty
 
   // We now know that (ptmp, stmp) are consistent. We do not
   // write them back to (P_, S_) before we are also sure that
   // the properties to be set in the parent class are internally
   // consistent.
-  ArchivingNode::set_status( d );
+  Archiving_Node::set_status( d );
 
   // if we get here, temporaries contain consistent set of properties
   P_ = ptmp;

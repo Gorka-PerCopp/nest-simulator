@@ -32,27 +32,13 @@
         https://doi.org/10.1371/journal.pcbi.1005507 */
 
 #include "gif_pop_psc_exp.h"
-
-// Includes from libnestutil:
-#include "compose.hpp"
-#include "dict_util.h"
-
-// Includes from nestkernel:
-#include "model_manager_impl.h"
-#include "nest_impl.h"
 #include "universal_data_logger_impl.h"
-
+#include "compose.hpp"
 
 #ifdef HAVE_GSL
 
 namespace nest
 {
-void
-register_gif_pop_psc_exp( const std::string& name )
-{
-  register_node_model< gif_pop_psc_exp >( name );
-}
-
 /* ----------------------------------------------------------------
  * Recordables map
  * ---------------------------------------------------------------- */
@@ -65,7 +51,7 @@ template <>
 void
 RecordablesMap< gif_pop_psc_exp >::create()
 {
-  // use standard names wherever you can for consistency!
+  // use standard names whereever you can for consistency!
   insert_( names::V_m, &gif_pop_psc_exp::get_V_m_ );
   insert_( names::n_events, &gif_pop_psc_exp::get_n_events_ );
   insert_( names::E_sfa, &gif_pop_psc_exp::get_E_sfa_ );
@@ -142,22 +128,22 @@ nest::gif_pop_psc_exp::Parameters_::get( DictionaryDatum& d ) const
 }
 
 void
-nest::gif_pop_psc_exp::Parameters_::set( const DictionaryDatum& d, Node* node )
+nest::gif_pop_psc_exp::Parameters_::set( const DictionaryDatum& d )
 {
-  updateValueParam< long >( d, names::N, N_, node );
-  updateValueParam< double >( d, names::tau_m, tau_m_, node );
-  updateValueParam< double >( d, names::C_m, c_m_, node );
-  updateValueParam< double >( d, names::lambda_0, lambda_0_, node );
-  updateValueParam< double >( d, names::Delta_V, Delta_V_, node );
-  updateValueParam< long >( d, names::len_kernel, len_kernel_, node );
-  updateValueParam< double >( d, names::I_e, I_e_, node );
-  updateValueParam< double >( d, names::V_reset, V_reset_, node );
-  updateValueParam< double >( d, names::V_T_star, V_T_star_, node );
-  updateValueParam< double >( d, names::E_L, E_L_, node );
-  updateValueParam< double >( d, names::t_ref, t_ref_, node );
-  updateValueParam< double >( d, names::tau_syn_ex, tau_syn_ex_, node );
-  updateValueParam< double >( d, names::tau_syn_in, tau_syn_in_, node );
-  updateValueParam< bool >( d, "BinoRand", BinoRand_, node );
+  updateValue< long >( d, names::N, N_ );
+  updateValue< double >( d, names::tau_m, tau_m_ );
+  updateValue< double >( d, names::C_m, c_m_ );
+  updateValue< double >( d, names::lambda_0, lambda_0_ );
+  updateValue< double >( d, names::Delta_V, Delta_V_ );
+  updateValue< long >( d, names::len_kernel, len_kernel_ );
+  updateValue< double >( d, names::I_e, I_e_ );
+  updateValue< double >( d, names::V_reset, V_reset_ );
+  updateValue< double >( d, names::V_T_star, V_T_star_ );
+  updateValue< double >( d, names::E_L, E_L_ );
+  updateValue< double >( d, names::t_ref, t_ref_ );
+  updateValue< double >( d, names::tau_syn_ex, tau_syn_ex_ );
+  updateValue< double >( d, names::tau_syn_in, tau_syn_in_ );
+  updateValue< bool >( d, "BinoRand", BinoRand_ );
 
   updateValue< std::vector< double > >( d, names::tau_sfa, tau_sfa_ );
   updateValue< std::vector< double > >( d, names::q_sfa, q_sfa_ );
@@ -165,11 +151,11 @@ nest::gif_pop_psc_exp::Parameters_::set( const DictionaryDatum& d, Node* node )
 
   if ( tau_sfa_.size() != q_sfa_.size() )
   {
-    throw BadProperty(
-      String::compose( "'tau_sfa' and 'q_sfa' need to have the same dimension.\nSize of "
-                       "tau_sfa: %1\nSize of q_sfa: %2",
-        tau_sfa_.size(),
-        q_sfa_.size() ) );
+    throw BadProperty( String::compose(
+      "'tau_sfa' and 'q_sfa' need to have the same dimension.\nSize of "
+      "tau_sfa: %1\nSize of q_sfa: %2",
+      tau_sfa_.size(),
+      q_sfa_.size() ) );
   }
 
   if ( c_m_ <= 0 )
@@ -179,12 +165,14 @@ nest::gif_pop_psc_exp::Parameters_::set( const DictionaryDatum& d, Node* node )
 
   if ( tau_m_ <= 0 )
   {
-    throw BadProperty( "The membrane time constants must be strictly positive." );
+    throw BadProperty(
+      "The membrane time constants must be strictly positive." );
   }
 
   if ( tau_syn_ex_ <= 0 or tau_syn_in_ <= 0 )
   {
-    throw BadProperty( "The synaptic time constants must be strictly positive." );
+    throw BadProperty(
+      "The synaptic time constants must be strictly positive." );
   }
 
   for ( size_t i = 0; i < tau_sfa_.size(); ++i )
@@ -217,7 +205,8 @@ nest::gif_pop_psc_exp::Parameters_::set( const DictionaryDatum& d, Node* node )
 }
 
 void
-nest::gif_pop_psc_exp::State_::get( DictionaryDatum& d, const Parameters_& ) const
+nest::gif_pop_psc_exp::State_::get( DictionaryDatum& d,
+  const Parameters_& ) const
 {
   def< double >( d, names::V_m, V_m_ );         // Filtered version of input
   def< long >( d, names::n_events, n_spikes_ ); // Number of generated spikes
@@ -228,12 +217,14 @@ nest::gif_pop_psc_exp::State_::get( DictionaryDatum& d, const Parameters_& ) con
 }
 
 void
-nest::gif_pop_psc_exp::State_::set( const DictionaryDatum& d, const Parameters_&, Node* node )
+nest::gif_pop_psc_exp::State_::set( const DictionaryDatum& d,
+  const Parameters_& )
 {
-  updateValueParam< double >( d, names::V_m, V_m_, node );
-  updateValueParam< double >( d, names::I_syn_ex, I_syn_ex_, node );
-  updateValueParam< double >( d, names::I_syn_in, I_syn_in_, node );
-  initialized_ = false; // vectors of the state should be initialized with new parameter set.
+  updateValue< double >( d, names::V_m, V_m_ );
+  updateValue< double >( d, names::I_syn_ex, I_syn_ex_ );
+  updateValue< double >( d, names::I_syn_in, I_syn_in_ );
+  initialized_ =
+    false; // vectors of the state should be initialized with new parameter set.
 }
 
 nest::gif_pop_psc_exp::Buffers_::Buffers_( gif_pop_psc_exp& n )
@@ -272,6 +263,13 @@ nest::gif_pop_psc_exp::gif_pop_psc_exp( const gif_pop_psc_exp& n )
  * ---------------------------------------------------------------- */
 
 void
+nest::gif_pop_psc_exp::init_state_( const Node& proto )
+{
+  const gif_pop_psc_exp& pr = downcast< gif_pop_psc_exp >( proto );
+  S_ = pr.S_;
+}
+
+void
 nest::gif_pop_psc_exp::init_buffers_()
 {
   B_.ex_spikes_.clear(); //!< includes resize
@@ -282,7 +280,7 @@ nest::gif_pop_psc_exp::init_buffers_()
 
 
 void
-nest::gif_pop_psc_exp::pre_run_hook()
+nest::gif_pop_psc_exp::calibrate()
 {
   if ( P_.tau_sfa_.size() == 0 )
   {
@@ -297,7 +295,7 @@ nest::gif_pop_psc_exp::pre_run_hook()
   B_.logger_.init();
 
   V_.h_ = Time::get_resolution().get_ms();
-  V_.rng_ = get_vp_specific_rng( get_thread() );
+  V_.rng_ = kernel().rng_manager.get_rng( get_thread() );
   V_.min_double_ = std::numeric_limits< double >::min();
   V_.R_ = P_.tau_m_ / P_.c_m_; // membrane resistance
 
@@ -345,12 +343,15 @@ nest::gif_pop_psc_exp::pre_run_hook()
 
       const double theta_tmp = adaptation_kernel( P_.len_kernel_ - k );
       V_.theta_.push_back( theta_tmp ); // line 4 of [1]
-      V_.theta_tld_.push_back(
-        P_.Delta_V_ * ( 1. - std::exp( -theta_tmp / P_.Delta_V_ ) ) / static_cast< double >( P_.N_ ) ); // line 5 of [1]
+      V_.theta_tld_.push_back( P_.Delta_V_
+        * ( 1. - std::exp( -theta_tmp / P_.Delta_V_ ) )
+        / static_cast< double >( P_.N_ ) ); // line 5 of [1]
     }
 
-    V_.n_[ P_.len_kernel_ - 1 ] = static_cast< double >( P_.N_ ); // InitPopulations, line 7 of [1]
-    V_.m_[ P_.len_kernel_ - 1 ] = static_cast< double >( P_.N_ ); // InitPopulations, line 7 of [1]
+    V_.n_[ P_.len_kernel_ - 1 ] =
+      static_cast< double >( P_.N_ ); // InitPopulations, line 7 of [1]
+    V_.m_[ P_.len_kernel_ - 1 ] =
+      static_cast< double >( P_.N_ ); // InitPopulations, line 7 of [1]
 
     // InitPopulations, line 8 of [1]
     V_.x_ = 0.;
@@ -369,7 +370,8 @@ nest::gif_pop_psc_exp::pre_run_hook()
     {
       // multiply by tau_sfa here because [1] defines J as product
       // of J and tau_sfa.
-      V_.Q30K_.push_back( P_.q_sfa_[ k ] * P_.tau_sfa_[ k ] * std::exp( -V_.h_ * P_.len_kernel_ / P_.tau_sfa_[ k ] ) );
+      V_.Q30K_.push_back( P_.q_sfa_[ k ] * P_.tau_sfa_[ k ]
+        * std::exp( -V_.h_ * P_.len_kernel_ / P_.tau_sfa_[ k ] ) );
       V_.Q30_.push_back( std::exp( -V_.h_ / P_.tau_sfa_[ k ] ) );
       V_.g_.push_back( 0.0 );
     }
@@ -408,8 +410,8 @@ nest::gif_pop_psc_exp::draw_poisson( const double n_expect_ )
     // we draw a Bernoulli random number instead of Poisson.
     if ( 1. - ( n_expect_ + 1. ) * std::exp( -n_expect_ ) > V_.min_double_ )
     {
-      poisson_distribution::param_type param( n_expect_ );
-      n_t_ = V_.poisson_dist_( V_.rng_, param );
+      V_.poisson_dev_.set_lambda( n_expect_ );
+      n_t_ = V_.poisson_dev_.ldev( V_.rng_ );
     }
     else
     {
@@ -451,10 +453,9 @@ nest::gif_pop_psc_exp::draw_binomial( const double n_expect_ )
   }
   else
   {
-    binomial_distribution::param_type param( P_.N_, p_bino_ );
-    return V_.bino_dist_( V_.rng_, param );
+    V_.bino_dev_.set_p_n( p_bino_, P_.N_ );
   }
-  return V_.bino_dist_( V_.rng_ );
+  return V_.bino_dev_.ldev( V_.rng_ );
 }
 
 
@@ -483,7 +484,7 @@ nest::gif_pop_psc_exp::get_history_size()
 
   int k = tmax / V_.h_;
   int kmin = 5 * P_.tau_m_ / V_.h_;
-  while ( ( adaptation_kernel( k ) / P_.Delta_V_ < 0.1 ) and k > kmin )
+  while ( ( adaptation_kernel( k ) / P_.Delta_V_ < 0.1 ) and ( k > kmin ) )
   {
     k--;
   }
@@ -496,8 +497,14 @@ nest::gif_pop_psc_exp::get_history_size()
 
 
 void
-nest::gif_pop_psc_exp::update( Time const& origin, const long from, const long to )
+nest::gif_pop_psc_exp::update( Time const& origin,
+  const long from,
+  const long to )
 {
+  assert(
+    to >= 0 and ( delay ) from < kernel().connection_manager.get_min_delay() );
+  assert( from < to );
+
   for ( long lag = from; lag < to; ++lag )
   {
     // main update routine, see Fig. 11 of [1]
@@ -523,12 +530,16 @@ nest::gif_pop_psc_exp::update( Time const& origin, const long from, const long t
     double JNy_in = S_.I_syn_in_ / P_.c_m_;
 
     // membrane update (line 10 of [1])
-    const double h_ex_tmpvar = ( P_.tau_syn_ex_ * V_.P11_ex_ * ( JNy_ex - JNA_ex )
-      - V_.P22_ * ( P_.tau_syn_ex_ * JNy_ex - P_.tau_m_ * JNA_ex ) );
-    const double h_in_tmpvar = ( P_.tau_syn_in_ * V_.P11_in_ * ( JNy_in - JNA_in )
-      - V_.P22_ * ( P_.tau_syn_in_ * JNy_in - P_.tau_m_ * JNA_in ) );
-    const double h_ex = P_.tau_m_ * ( JNA_ex + h_ex_tmpvar / ( P_.tau_syn_ex_ - P_.tau_m_ ) );
-    const double h_in = P_.tau_m_ * ( JNA_in + h_in_tmpvar / ( P_.tau_syn_in_ - P_.tau_m_ ) );
+    const double h_ex_tmpvar =
+      ( P_.tau_syn_ex_ * V_.P11_ex_ * ( JNy_ex - JNA_ex )
+        - V_.P22_ * ( P_.tau_syn_ex_ * JNy_ex - P_.tau_m_ * JNA_ex ) );
+    const double h_in_tmpvar =
+      ( P_.tau_syn_in_ * V_.P11_in_ * ( JNy_in - JNA_in )
+        - V_.P22_ * ( P_.tau_syn_in_ * JNy_in - P_.tau_m_ * JNA_in ) );
+    const double h_ex =
+      P_.tau_m_ * ( JNA_ex + h_ex_tmpvar / ( P_.tau_syn_ex_ - P_.tau_m_ ) );
+    const double h_in =
+      P_.tau_m_ * ( JNA_in + h_in_tmpvar / ( P_.tau_syn_in_ - P_.tau_m_ ) );
     h_tot_ += h_ex + h_in;
 
     // update EPSCs & IPSCs (line 11 of [1])
@@ -551,16 +562,19 @@ nest::gif_pop_psc_exp::update( Time const& origin, const long from, const long t
     // compute free adaptation state
     for ( size_t j = 0; j < P_.tau_sfa_.size(); ++j ) // line 4 of [1]
     {
-      const double g_j_tmp = ( 1. - V_.Q30_[ j ] ) * V_.n_[ V_.k0_ ] / ( static_cast< double >( P_.N_ ) * V_.h_ );
+      const double g_j_tmp = ( 1. - V_.Q30_[ j ] ) * V_.n_[ V_.k0_ ]
+        / ( static_cast< double >( P_.N_ ) * V_.h_ );
       V_.g_[ j ] = V_.g_[ j ] * V_.Q30_[ j ] + g_j_tmp; // line 5 of [1]
       S_.theta_hat_ += V_.Q30K_[ j ] * V_.g_[ j ];      // line 6 of [1]
     }
 
     // compute free escape rate
-    double lambda_tld = escrate( S_.V_m_ - S_.theta_hat_ );                                   // line 8 of [1]
-    const double P_free = 1 - std::exp( -0.0005 * ( V_.lambda_free_ + lambda_tld ) * V_.h_ ); // line 9 of [1]
-    V_.lambda_free_ = lambda_tld;                                                             // line 10
-    S_.theta_hat_ -= V_.n_[ 0 ] * V_.theta_tld_[ 0 ];                                         // line 11
+    double lambda_tld = escrate( S_.V_m_ - S_.theta_hat_ ); // line 8 of [1]
+    const double P_free =
+      1 - std::exp( -0.0005 * ( V_.lambda_free_ + lambda_tld )
+            * V_.h_ );                                // line 9 of [1]
+    V_.lambda_free_ = lambda_tld;                     // line 10
+    S_.theta_hat_ -= V_.n_[ 0 ] * V_.theta_tld_[ 0 ]; // line 11
 
     for ( int k_marked = 0; k_marked < P_.len_kernel_; ++k_marked )
     {
@@ -574,9 +588,9 @@ nest::gif_pop_psc_exp::update( Time const& origin, const long from, const long t
     // line 13 of [1]
     for ( int k_marked = 0; k_marked < P_.len_kernel_ - V_.k_ref_; ++k_marked )
     {
-      int k = ( V_.k0_ + k_marked ) % P_.len_kernel_;           // line 14 of [1]
-      const double theta = V_.theta_[ k_marked ] + theta_hat_;  // line 15
-      theta_hat_ += V_.n_[ k ] * V_.theta_tld_[ k_marked ];     // line 16
+      int k = ( V_.k0_ + k_marked ) % P_.len_kernel_;          // line 14 of [1]
+      const double theta = V_.theta_[ k_marked ] + theta_hat_; // line 15
+      theta_hat_ += V_.n_[ k ] * V_.theta_tld_[ k_marked ];    // line 16
       V_.u_[ k ] = ( V_.u_[ k ] - P_.E_L_ ) * V_.P22_ + h_tot_; // line 17
       lambda_tld = escrate( V_.u_[ k ] - theta );               // line 18
       double P_lambda_ = 0.0005 * ( lambda_tld + V_.lambda_[ k ] ) * V_.h_;
@@ -605,7 +619,8 @@ nest::gif_pop_psc_exp::update( Time const& origin, const long from, const long t
     }
 
     // finally compute expected number of spikes and draw a random number
-    S_.n_expect_ = W_ + P_free * V_.x_ + P_Lambda_ * ( P_.N_ - X_ - V_.x_ ); // line 29
+    S_.n_expect_ =
+      W_ + P_free * V_.x_ + P_Lambda_ * ( P_.N_ - X_ - V_.x_ ); // line 29
     if ( P_.BinoRand_ )
     {
       S_.n_spikes_ = draw_binomial( S_.n_expect_ );
@@ -654,30 +669,36 @@ nest::gif_pop_psc_exp::update( Time const& origin, const long from, const long t
 void
 gif_pop_psc_exp::handle( SpikeEvent& e )
 {
-  assert( e.get_delay_steps() > 0 );
+  assert( e.get_delay() > 0 );
 
   const double s = e.get_weight() * e.get_multiplicity();
 
   if ( s > 0.0 )
   {
-    B_.ex_spikes_.add_value( e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ), s );
+    B_.ex_spikes_.add_value( e.get_rel_delivery_steps(
+                               kernel().simulation_manager.get_slice_origin() ),
+      s );
   }
   else
   {
-    B_.in_spikes_.add_value( e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ), s );
+    B_.in_spikes_.add_value( e.get_rel_delivery_steps(
+                               kernel().simulation_manager.get_slice_origin() ),
+      s );
   }
 }
 
 void
 nest::gif_pop_psc_exp::handle( CurrentEvent& e )
 {
-  assert( e.get_delay_steps() > 0 );
+  assert( e.get_delay() > 0 );
 
   const double c = e.get_current();
   const double w = e.get_weight();
 
   // Add weighted current; HEP 2002-10-04
-  B_.currents_.add_value( e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ), w * c );
+  B_.currents_.add_value(
+    e.get_rel_delivery_steps( kernel().simulation_manager.get_slice_origin() ),
+    w * c );
 }
 
 void

@@ -47,10 +47,12 @@ class Event;
  * @defgroup KernelExceptions NEST kernel exception classes
  * Exception classes that are thrown by the NEST kernel to indicate
  * an error.
+ * @ingroup Exceptions
  */
 
 /**
  * Base class for all Kernel exceptions.
+ * @ingroup Exceptions
  * @ingroup KernelExceptions
  */
 class KernelException : public SLIException
@@ -61,22 +63,22 @@ public:
   {
   }
 
-  explicit KernelException( char const* const what )
+  KernelException( char const* const what )
     : SLIException( what )
   {
   }
 
-  explicit KernelException( const std::string& what )
+  KernelException( const std::string& what )
     : SLIException( what )
   {
   }
 
-  ~KernelException() throw() override
+  virtual ~KernelException() throw()
   {
   }
 
-  std::string
-  message() const override
+  virtual std::string
+  message() const
   {
     return std::string();
   }
@@ -85,7 +87,7 @@ public:
 /**
  * Exception to be thrown if a model with the the specified name
  * does not exist.
- * @see UnknownComponent
+ * @see UnknownModelID
  * @ingroup KernelExceptions
  */
 class UnknownModelName : public KernelException
@@ -93,46 +95,21 @@ class UnknownModelName : public KernelException
   const Name n_;
 
 public:
-  explicit UnknownModelName( const Name& n )
+  UnknownModelName( const Name& n )
     : KernelException( "UnknownModelName" )
     , n_( n )
   {
   }
 
-  ~UnknownModelName() throw() override
+  ~UnknownModelName() throw()
   {
   }
-  std::string message() const override;
-};
-
-/**
- * Exception to be thrown if a component with the the specified name
- * does not exist.
- *
- * @see UnknownModelName
- * @ingroup KernelExceptions
- */
-class UnknownComponent : public KernelException
-{
-  const Name n_;
-
-public:
-  explicit UnknownComponent( const Name& n )
-    : KernelException( "UnknownComponent" )
-    , n_( n )
-  {
-  }
-
-  ~UnknownComponent() throw() override
-  {
-  }
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
  * Exception to be thrown if a name requested for a user-defined
  * model exist already.
- *
  * @ingroup KernelExceptions
  */
 class NewModelNameExists : public KernelException
@@ -140,23 +117,46 @@ class NewModelNameExists : public KernelException
   const Name n_;
 
 public:
-  explicit NewModelNameExists( const Name& n )
+  NewModelNameExists( const Name& n )
     : KernelException( "NewModelNameExists" )
     , n_( n )
   {
   }
-  ~NewModelNameExists() throw() override
+  ~NewModelNameExists() throw()
   {
   }
-  std::string message() const override;
+  std::string message() const;
+};
+
+/**
+ * Exception to be thrown if a model with the the specified ID
+ * does not exist.
+ * This exception can occur if modeldict has corrupt entries.
+ * @see UnknownModelID
+ * @ingroup KernelExceptions
+ */
+class UnknownModelID : public KernelException
+{
+  const long id_;
+
+public:
+  UnknownModelID( long id )
+    : KernelException( "UnknownModelID" )
+    , id_( id )
+  {
+  }
+  ~UnknownModelID() throw()
+  {
+  }
+  std::string message() const;
 };
 
 /**
  * Exception to be thrown if a (neuron/synapse) model with the the specified ID
  * is used within the network and the providing module hence cannot be
- * uninstalled.
- * This exception can occur if the user tries to uninstall a
+ * uninstalled. This exception can occur if the user tries to uninstall a
  * module.
+ * @see UnknownModelID
  * @ingroup KernelExceptions
  */
 class ModelInUse : public KernelException
@@ -170,10 +170,10 @@ public:
   {
   }
 
-  ~ModelInUse() throw() override
+  ~ModelInUse() throw()
   {
   }
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
@@ -201,16 +201,16 @@ public:
   {
   }
 
-  ~UnknownSynapseType() throw() override
+  ~UnknownSynapseType() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
- * Exception to be thrown if the specified Node does not exist.
- *
+ * Exception to be thrown if the specified
+ * Node does not exist.
  * This exception is thrown, if
  * -# an address did not point to an existing node.
  * -# a node id did not point to an existing node.
@@ -219,7 +219,7 @@ public:
 
 class UnknownNode : public KernelException
 {
-  long id_;
+  int id_;
 
 public:
   UnknownNode()
@@ -227,22 +227,22 @@ public:
     , id_( -1 )
   {
   }
-  UnknownNode( long id )
+  UnknownNode( int id )
     : KernelException( "UnknownNode" )
     , id_( id )
   {
   }
 
-  ~UnknownNode() throw() override
+  ~UnknownNode() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
- * Exception to be thrown if the specified Node does not exist.
- *
+ * Exception to be thrown if the specified
+ * Node does not exist.
  * This exception is thrown, if
  * -# an address did not point to an existing node.
  * -# a node id did not point to an existing node.
@@ -265,11 +265,11 @@ public:
   {
   }
 
-  ~NoThreadSiblingsAvailable() throw() override
+  ~NoThreadSiblingsAvailable() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 
@@ -284,11 +284,11 @@ public:
   {
   }
 
-  ~LocalNodeExpected() throw() override
+  ~LocalNodeExpected() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 class NodeWithProxiesExpected : public KernelException
@@ -302,35 +302,12 @@ public:
   {
   }
 
-  ~NodeWithProxiesExpected() throw() override
+  ~NodeWithProxiesExpected() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
-
-/**
- * Exception to be thrown if the parent compartment does not exist
- */
-class UnknownCompartment : public KernelException
-{
-  long compartment_idx_;
-  std::string info_;
-
-public:
-  UnknownCompartment( long compartment_idx, std::string info )
-    : KernelException( "UnknownCompartment" )
-    , compartment_idx_( compartment_idx )
-    , info_( info )
-  {
-  }
-
-  ~UnknownCompartment() throw() override
-  {
-  }
-  std::string message() const override;
-};
-
 
 /**
  * Exception to be thrown if the specified
@@ -350,10 +327,10 @@ public:
   {
   }
 
-  ~UnknownReceptorType() throw() override
+  ~UnknownReceptorType() throw()
   {
   }
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
@@ -368,7 +345,9 @@ class IncompatibleReceptorType : public KernelException
   std::string event_type_;
 
 public:
-  IncompatibleReceptorType( long receptor_type, std::string name, std::string event )
+  IncompatibleReceptorType( long receptor_type,
+    std::string name,
+    std::string event )
     : KernelException( "IncompatibleReceptorType" )
     , receptor_type_( receptor_type )
     , name_( name )
@@ -376,10 +355,10 @@ public:
   {
   }
 
-  ~IncompatibleReceptorType() throw() override
+  ~IncompatibleReceptorType() throw()
   {
   }
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
@@ -391,32 +370,23 @@ public:
 class UnknownPort : public KernelException
 {
   int id_;
-  std::string info_;
 
 public:
   UnknownPort( int id )
     : KernelException( "UnknownPort" )
     , id_( id )
-    , info_( "" )
-  {
-  }
-  UnknownPort( int id, std::string info )
-    : KernelException( "UnknownPort" )
-    , id_( id )
-    , info_( info )
   {
   }
 
-  ~UnknownPort() throw() override
+  ~UnknownPort() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
  * To be thrown if a connection is not possible.
- *
  * This exception is e.g. thrown if a connection was attempted with
  * an unsupported Event type.
  * @ingroup KernelExceptions
@@ -436,19 +406,19 @@ public:
   {
   }
 
-  ~IllegalConnection() throw() override
+  ~IllegalConnection() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 
 private:
   std::string msg_;
 };
 
 /**
- * To be thrown if a connection does not exists but something is to be done with it.
- *
+ * To be thrown if a connection does not exists but something is to be done with
+ * it.
  * This exception is e.g. thrown if a deletion was attempted with
  * an inexistent connection.
  * @ingroup KernelExceptions
@@ -468,11 +438,11 @@ public:
   {
   }
 
-  ~InexistentConnection() throw() override
+  ~InexistentConnection() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 
 private:
   std::string msg_;
@@ -493,11 +463,11 @@ public:
   {
   }
 
-  ~UnknownThread() throw() override
+  ~UnknownThread() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
@@ -518,17 +488,16 @@ public:
   {
   }
 
-  ~BadDelay() throw() override
+  ~BadDelay() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
  * Exception to be thrown by the event handler
  * of a node if it receives an event it cannot handle.
- *
  * This case should be prevented by connect_sender().
  * @ingroup KernelExceptions
  */
@@ -540,22 +509,12 @@ public:
   {
   }
 
-  UnexpectedEvent( std::string msg )
-    : KernelException( "UnexpectedEvent" )
-    , msg_( msg )
+  ~UnexpectedEvent() throw()
   {
   }
 
-  ~UnexpectedEvent() throw() override
-  {
-  }
-
-  std::string message() const override;
-
-private:
-  std::string msg_;
+  std::string message() const;
 };
-
 
 /**
  * Exception to be thrown by a Connection object if
@@ -571,15 +530,15 @@ public:
   {
   }
 
-  ~UnsupportedEvent() throw() override
+  ~UnsupportedEvent() throw()
   {
   }
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
- * Exception to be thrown if a status parameter is incomplete or inconsistent.
- *
+ * Exception to be thrown if a status parameter
+ * is incomplete or inconsistent.
  * Thrown by Node::set_/get_property methods.
  * @ingroup KernelExceptions
  */
@@ -600,16 +559,16 @@ public:
   {
   }
 
-  ~BadProperty() throw() override
+  ~BadProperty() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
- * Exception to be thrown if a parameter cannot be set.
- *
+ * Exception to be thrown if a parameter
+ * cannot be set.
  * Thrown by Node::set_/get_property methods.
  * @ingroup KernelExceptions
  */
@@ -630,16 +589,16 @@ public:
   {
   }
 
-  ~BadParameter() throw() override
+  ~BadParameter() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
- * Exception to be thrown if the dimensions of two or more objects do not agree.
- *
+ * Exception to be thrown if the dimensions
+ * of two or more objects do not agree.
  * Thrown by Node::set_/get_property methods.
  * @ingroup KernelExceptions
  */
@@ -654,6 +613,7 @@ public:
     : KernelException( "DimensionMismatch" )
     , expected_( -1 )
     , provided_( -1 )
+    , msg_( "" )
   {
   }
 
@@ -661,6 +621,7 @@ public:
     : KernelException( "DimensionMismatch" )
     , expected_( expected )
     , provided_( provided )
+    , msg_( "" )
   {
   }
 
@@ -673,11 +634,11 @@ public:
   }
 
 
-  ~DimensionMismatch() throw() override
+  ~DimensionMismatch() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
@@ -692,17 +653,54 @@ public:
     : KernelException( "DistributionError" )
   {
   }
-  ~DistributionError() throw() override
+  ~DistributionError() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 };
 
 /**
- * Exception to be thrown on prototype construction if Time objects incompatible.
- *
- * This exception is to be thrown by the default constructor of
+ * Exception to be thrown if the wrong argument type
+ * is given to a function
+ * @ingroup KernelExceptions
+ */
+class SubnetExpected : public KernelException
+{
+public:
+  SubnetExpected()
+    : KernelException( "SubnetExpected" )
+  {
+  }
+  ~SubnetExpected() throw()
+  {
+  }
+
+  std::string message() const;
+};
+
+/**
+ * Exception to be thrown if the wrong argument type
+ * is given to a function
+ * @ingroup KernelExceptions
+ */
+class SimulationError : public KernelException
+{
+public:
+  SimulationError()
+    : KernelException( "SimulationError" )
+  {
+  }
+  ~SimulationError() throw()
+  {
+  }
+
+  std::string message() const;
+};
+
+/**
+ * Exception to be thrown on prototype construction if Time objects
+ * incompatible. This exception is to be thrown by the default constructor of
  * nodes which require that Time objects have properties wrt resolution.
  * @ingroup KernelExceptions
  * @see InvalidTimeInModel
@@ -717,18 +715,20 @@ public:
    * @param property  name of property conflicting
    * @param value     value of property conflicting
    */
-  InvalidDefaultResolution( const std::string& model, const Name& property, const Time& value )
+  InvalidDefaultResolution( const std::string& model,
+    const Name& property,
+    const Time& value )
     : KernelException( "InvalidDefaultResolution" )
     , model_( model )
     , prop_( property )
     , val_( value )
   {
   }
-  ~InvalidDefaultResolution() throw() override
+  ~InvalidDefaultResolution() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 
 private:
   const std::string model_;
@@ -738,7 +738,6 @@ private:
 
 /**
  * Exception to be thrown on instance construction if Time objects incompatible.
- *
  * This exception is to be thrown by the copy constructor of nodes which
  * require that Time objects have properties wrt resolution.
  * @ingroup KernelExceptions
@@ -748,24 +747,26 @@ class InvalidTimeInModel : public KernelException
 {
 public:
   /**
-   * @note model should be passed from get_name() to ensure that
-   *             names of copied models are reported correctly.
+  * @note model should be passed from get_name() to ensure that
+  *             names of copied models are reported correctly.
    * @param model     name of model causing problem
    * @param property  name of property conflicting
    * @param value     value of property conflicting
    */
-  InvalidTimeInModel( const std::string& model, const Name& property, const Time& value )
+  InvalidTimeInModel( const std::string& model,
+    const Name& property,
+    const Time& value )
     : KernelException( "InvalidTimeInModel" )
     , model_( model )
     , prop_( property )
     , val_( value )
   {
   }
-  ~InvalidTimeInModel() throw() override
+  ~InvalidTimeInModel() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 
 private:
   const std::string model_;
@@ -782,24 +783,26 @@ class StepMultipleRequired : public KernelException
 {
 public:
   /**
-   * @note model should be passed from get_name() to ensure that
-   *             names of copied models are reported correctly.
+  * @note model should be passed from get_name() to ensure that
+  *             names of copied models are reported correctly.
    * @param model     name of model causing problem
    * @param property  name of property conflicting
    * @param value     value of property conflicting
    */
-  StepMultipleRequired( const std::string& model, const Name& property, const Time& value )
+  StepMultipleRequired( const std::string& model,
+    const Name& property,
+    const Time& value )
     : KernelException( "StepMultipleRequired" )
     , model_( model )
     , prop_( property )
     , val_( value )
   {
   }
-  ~StepMultipleRequired() throw() override
+  ~StepMultipleRequired() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 
 private:
   const std::string model_;
@@ -816,8 +819,8 @@ class TimeMultipleRequired : public KernelException
 {
 public:
   /**
-   * @note model should be passed from get_name() to ensure that
-   *             names of copied models are reported correctly.
+  * @note model should be passed from get_name() to ensure that
+  *             names of copied models are reported correctly.
    * @param model    name of model causing problem
    * @param name_a   name of dividend
    * @param value_a  value of dividend
@@ -837,11 +840,11 @@ public:
     , val_b_( value_b )
   {
   }
-  ~TimeMultipleRequired() throw() override
+  ~TimeMultipleRequired() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 
 private:
   const std::string model_;
@@ -859,22 +862,22 @@ class GSLSolverFailure : public KernelException
 {
 public:
   /**
-   * @note model should be passed from get_name() to ensure that
-   *             names of copied models are reported correctly.
-   * @param model name of model causing problem
-   * @param status exit status of the GSL solver
-   */
+  * @note model should be passed from get_name() to ensure that
+  *             names of copied models are reported correctly.
+  * @param model name of model causing problem
+  * @param status exit status of the GSL solver
+  */
   GSLSolverFailure( const std::string& model, const int status )
     : KernelException( "GSLSolverFailure" )
     , model_( model )
     , status_( status )
   {
   }
-  ~GSLSolverFailure() throw() override
+  ~GSLSolverFailure() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 
 private:
   const std::string model_;
@@ -898,11 +901,11 @@ public:
     , model_( model )
   {
   }
-  ~NumericalInstability() throw() override
+  ~NumericalInstability() throw()
   {
   }
 
-  std::string message() const override;
+  std::string message() const;
 
 private:
   const std::string model_;
@@ -920,7 +923,9 @@ class KeyError : public KernelException
   const std::string map_op_;
 
 public:
-  KeyError( const Name& key, const std::string& map_type, const std::string& map_op )
+  KeyError( const Name& key,
+    const std::string& map_type,
+    const std::string& map_op )
     : KernelException( "KeyError" )
     , key_( key )
     , map_type_( map_type )
@@ -928,38 +933,10 @@ public:
   {
   }
 
-  ~KeyError() throw() override
+  ~KeyError() throw()
   {
   }
-  std::string message() const override;
-};
-
-/**
- * Exception to be thrown if an internal error occurs.
- * @ingroup KernelExceptions
- */
-class InternalError : public KernelException
-{
-  std::string msg_;
-
-public:
-  //! @param detailed error message
-  InternalError()
-    : KernelException( "InternalError" )
-    , msg_()
-  {
-  }
-  InternalError( std::string msg )
-    : KernelException( "InternalError" )
-    , msg_( msg )
-  {
-  }
-
-  ~InternalError() throw() override
-  {
-  }
-
-  std::string message() const override;
+  std::string message() const;
 };
 
 
@@ -973,8 +950,8 @@ class MUSICPortUnconnected : public KernelException
 {
 public:
   /**
-   * @note model should be passed from get_name() to ensure that
-   *             names of copied models are reported correctly.
+  * @note model should be passed from get_name() to ensure that
+  *             names of copied models are reported correctly.
    * @param model     name of model causing problem
    * @param portname  name of MUSIC port
    */
@@ -1004,8 +981,8 @@ class MUSICPortHasNoWidth : public KernelException
 {
 public:
   /**
-   * @note model should be passed from get_name() to ensure that
-   *             names of copied models are reported correctly.
+  * @note model should be passed from get_name() to ensure that
+  *             names of copied models are reported correctly.
    * @param model     name of model causing problem
    * @param portname  name of music port
    */
@@ -1040,7 +1017,8 @@ public:
    *             names of copied models are reported correctly.
    * @param model     name of model causing problem
    */
-  MUSICPortAlreadyPublished( const std::string& model, const std::string& portname )
+  MUSICPortAlreadyPublished( const std::string& model,
+    const std::string& portname )
     : KernelException( "MUSICPortAlreadyPublished" )
     , model_( model )
     , portname_( portname )
@@ -1058,16 +1036,16 @@ private:
 };
 
 /**
- * Exception to be thrown if the user tries to change the name of an already
- * published port.
- * @ingroup KernelExceptions
- */
+* Exception to be thrown if the user tries to change the name of an already
+* published port.
+* @ingroup KernelExceptions
+*/
 class MUSICSimulationHasRun : public KernelException
 {
 public:
   /**
-   * @note model should be passed from get_name() to ensure that
-   *             names of copied models are reported correctly.
+  * @note model should be passed from get_name() to ensure that
+  *             names of copied models are reported correctly.
    * @param model     name of model causing problem
    */
   MUSICSimulationHasRun( const std::string& model )
@@ -1095,11 +1073,13 @@ class MUSICChannelUnknown : public KernelException
 {
 public:
   /**
-   * @note model should be passed from get_name() to ensure that
-   *             names of copied models are reported correctly.
+  * @note model should be passed from get_name() to ensure that
+  *             names of copied models are reported correctly.
    * @param model     name of model causing problem
    */
-  MUSICChannelUnknown( const std::string& model, const std::string& portname, int channel )
+  MUSICChannelUnknown( const std::string& model,
+    const std::string& portname,
+    int channel )
     : KernelException( "MUSICChannelUnknown" )
     , portname_( portname )
     , channel_( channel )
@@ -1150,11 +1130,13 @@ class MUSICChannelAlreadyMapped : public KernelException
 {
 public:
   /**
-   * @note model should be passed from get_name() to ensure that
-   *             names of copied models are reported correctly.
+  * @note model should be passed from get_name() to ensure that
+  *             names of copied models are reported correctly.
    * @param model     name of model causing problem
    */
-  MUSICChannelAlreadyMapped( const std::string& model, const std::string& portname, int channel )
+  MUSICChannelAlreadyMapped( const std::string& model,
+    const std::string& portname,
+    int channel )
     : KernelException( "MUSICChannelAlreadyMapped" )
     , portname_( portname )
     , channel_( channel )
@@ -1172,158 +1154,6 @@ private:
   const int channel_;
   const std::string model_;
 };
-
 #endif
-
-#ifdef HAVE_MPI
-class MPIPortsFileUnknown : public KernelException
-{
-public:
-  explicit MPIPortsFileUnknown( const size_t node_id )
-    : node_id_( node_id )
-  {
-  }
-
-  std::string message() const;
-
-private:
-  const size_t node_id_;
-};
-
-class MPIErrorCode : public KernelException
-{
-public:
-  explicit MPIErrorCode( const int error_code )
-    : error_code_( error_code )
-  {
-  }
-
-  std::string message() const;
-
-private:
-  int error_code_;
-};
-
-class MPIPortsFileMissing : public KernelException
-{
-public:
-  explicit MPIPortsFileMissing( const size_t node_id, const std::string path )
-    : node_id_( node_id )
-    , path_( path )
-  {
-  }
-
-  std::string message() const;
-
-private:
-  const size_t node_id_;
-  const std::string path_;
-};
-#endif
-
-class UnmatchedSteps : public KernelException
-{
-public:
-  UnmatchedSteps( int steps_left, int total_steps )
-    : current_step_( total_steps - steps_left )
-    , total_steps_( total_steps )
-  {
-  }
-
-  std::string message() const override;
-
-private:
-  const int current_step_;
-  const int total_steps_;
-};
-
-class BackendPrepared : public KernelException
-{
-public:
-  BackendPrepared( const std::string& backend )
-    : backend_( backend )
-  {
-  }
-
-  BackendPrepared( std::string&& backend )
-    : backend_( std::move( backend ) )
-  {
-  }
-
-
-  std::string message() const override;
-
-private:
-  const std::string backend_;
-};
-
-class BackendNotPrepared : public KernelException
-{
-public:
-  BackendNotPrepared( const std::string& backend )
-    : backend_( backend )
-  {
-  }
-
-  BackendNotPrepared( std::string&& backend )
-    : backend_( std::move( backend ) )
-  {
-  }
-
-  std::string message() const override;
-
-private:
-  const std::string backend_;
-};
-
-class BackendAlreadyRegistered : public KernelException
-{
-public:
-  BackendAlreadyRegistered( const std::string& backend )
-    : backend_( backend )
-  {
-  }
-
-  BackendAlreadyRegistered( std::string&& backend )
-    : backend_( std::move( backend ) )
-  {
-  }
-
-
-  std::string message() const override;
-
-private:
-  const std::string backend_;
-};
-
-class LayerExpected : public KernelException
-{
-public:
-  LayerExpected()
-    : KernelException( "LayerExpected" )
-  {
-  }
-  ~LayerExpected() throw() override
-  {
-  }
-
-  std::string message() const override;
-};
-
-class LayerNodeExpected : public KernelException
-{
-public:
-  LayerNodeExpected()
-    : KernelException( "LayerNodeExpected" )
-  {
-  }
-  ~LayerNodeExpected() throw() override
-  {
-  }
-
-  std::string message() const override;
-};
-
-} // namespace nest
-
+}
 #endif

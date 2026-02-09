@@ -38,7 +38,7 @@ extern "C" int write_history( const char* );
 extern "C" void using_history();
 extern "C" void clear_history();
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: GNUreadline - Read and edit a line from standard input
 Synopsis: (prompt) GNUreadline -> (string) true
                                -> false
@@ -57,9 +57,9 @@ GNUReadline::GNUReadlineFunction::execute( SLIInterpreter* i ) const
   i->EStack.pop();
 
   StringDatum* sd = dynamic_cast< StringDatum* >( i->OStack.top().datum() );
-  assert( sd );
+  assert( sd != NULL );
   char* line_read = readline( sd->c_str() );
-  if ( not line_read )
+  if ( line_read == NULL )
   {
     // We have received EOF (Ctrl-D), so we quit.
     std::cout << std::endl;
@@ -85,7 +85,7 @@ GNUReadline::GNUReadlineFunction::execute( SLIInterpreter* i ) const
   }
 }
 
-/** @BeginDocumentation
+/*BeginDocumentation
 Name: GNUaddhistory - Add a string to the readline-history
 Synopsis: (string) GRNUaddhistory -> -
 Description: Adds a string to the readline history.
@@ -97,7 +97,7 @@ GNUReadline::GNUAddhistoryFunction::execute( SLIInterpreter* i ) const
   i->assert_stack_load( 1 );
   i->EStack.pop();
   StringDatum* sd = dynamic_cast< StringDatum* >( i->OStack.top().datum() );
-  assert( sd );
+  assert( sd != NULL );
   add_history( sd->c_str() );
   char* home = std::getenv( "HOME" );
   std::string hist_file = std::string( home ) + std::string( "/.nest_history" );

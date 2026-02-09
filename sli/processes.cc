@@ -32,6 +32,7 @@
 
 // C++ includes:
 #include <cassert>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -55,6 +56,7 @@
 #include "namedatum.h"
 #include "sliexceptions.h"
 #include "stringdatum.h"
+#include "tokenutils.h"
 
 
 // sstream has functions std::?stringstream
@@ -79,11 +81,22 @@
 #define _POSIX_SOURCE
 #endif
 
+#if defined IS_BLUEGENE_P || defined IS_BLUEGENE_Q
+extern "C" {
+// These functions are defined in the file "get_mem.c". They need
+// to reside in a plain C file, because the #pragmas defined in the
+// BG header files interfere with C++, causing "undefined reference
+// to non-virtual thunk" MH 12-02-22, redid fix by JME 12-01-27.
+long bg_get_heap_mem();
+long bg_get_stack_mem();
+long bg_get_mmap_mem();
+}
+#endif
+
 #if defined __APPLE__ && defined HAVE_MACH_MACH_H
-extern "C"
-{
-  // Similar to the above prototype definitions for BG.
-  unsigned long darwin_get_used_mem();
+extern "C" {
+// Similar to the above prototype definitions for BG.
+unsigned long darwin_get_used_mem();
 }
 #endif
 
@@ -98,12 +111,14 @@ const std::string
 Processes::systemerror( SLIInterpreter* i )
 {
   Token errordict_t( i->baselookup( i->errordict_name ) );
-  assert( errordict_t.datum() );
-  DictionaryDatum errordict_d = *dynamic_cast< DictionaryDatum* >( errordict_t.datum() );
+  assert( errordict_t.datum() != NULL );
+  DictionaryDatum errordict_d =
+    *dynamic_cast< DictionaryDatum* >( errordict_t.datum() );
 
   std::string ErrorMessage( std::strerror( errno ) );
 
-  errordict_d->insert( Name( "sys_errname" ), new LiteralDatum( ErrorMessage ) );
+  errordict_d->insert(
+    Name( "sys_errname" ), new LiteralDatum( ErrorMessage ) );
   errordict_d->insert( Name( "sys_errno" ), new IntegerDatum( errno ) );
 
   return "SystemError";
@@ -119,7 +134,7 @@ Processes::fd( std::istream* s )
   else
   {
     ifdstream* fs = dynamic_cast< ifdstream* >( s );
-    assert( fs );
+    assert( fs != NULL );
     return fs->rdbuf()->fd();
   }
 }
@@ -131,14 +146,14 @@ Processes::fd( std::ostream* s )
   {
     return STDOUT_FILENO;
   }
-  else if ( ( s == &std::cerr ) or ( s == &std::clog ) )
+  else if ( ( s == &std::cerr ) || ( s == &std::clog ) )
   {
     return STDERR_FILENO;
   }
   else
   {
     ofdstream* fs = dynamic_cast< ofdstream* >( s );
-    assert( fs );
+    assert( fs != NULL );
     return fs->rdbuf()->fd();
   }
 }
@@ -146,13 +161,13 @@ Processes::fd( std::ostream* s )
 // end of definition of static variables and functions
 
 const std::string
-Processes::name() const
+Processes::name( void ) const
 {
   return std::string( "basic process management" ); // Return name of the module
 }
 
 const std::string
-Processes::commandstring() const
+Processes::commandstring( void ) const
 {
   return std::string( "(processes.sli) run" );
 }
@@ -194,8 +209,9 @@ Processes::init( SLIInterpreter* i )
   // create variables "sys_errname" and "sys_errno"
   //  and all needed errornumbers in errordict
   Token errordict_t( i->baselookup( i->errordict_name ) );
-  assert( errordict_t.datum() );
-  DictionaryDatum errordict_d = *dynamic_cast< DictionaryDatum* >( errordict_t.datum() );
+  assert( errordict_t.datum() != NULL );
+  DictionaryDatum errordict_d =
+    *dynamic_cast< DictionaryDatum* >( errordict_t.datum() );
 
   errordict_d->insert( sys_errname, new LiteralDatum( "" ) );
   errordict_d->insert( sys_errno, new IntegerDatum( 0 ) );
@@ -254,6 +270,9 @@ Processes::init( SLIInterpreter* i )
   i->createcommand( "getPPID", &getppidfunction );
   i->createcommand( "getPGRP", &getpgrpfunction );
   i->createcommand( "mkfifo", &mkfifofunction );
+#if defined IS_BLUEGENE_P || defined IS_BLUEGENE_Q
+  i->createcommand( ":memory_thisjob_bg", &memorythisjobbgfunction );
+#endif
 #if defined __APPLE__ && defined HAVE_MACH_MACH_H
   i->createcommand( ":memory_thisjob_darwin", &memorythisjobdarwinfunction );
 #endif
@@ -296,7 +315,7 @@ Processes::ForkFunction::execute( SLIInterpreter* i ) const
       //             {
       //               std::cerr << "Parent: Creating and putting child into new
       //               process group ";
-      //               int result = setpnode_id(pid,pid);
+      //               int result = setpgid(pid,pid);
       //               if (result < 0) i->raiseerror(systemerror(i));
       //               Processes::children_group = pid;
       //               std::cerr << Processes::children_group << std::endl;
@@ -306,7 +325,7 @@ Processes::ForkFunction::execute( SLIInterpreter* i ) const
       //               std::cerr << "Parent: Putting child into process group "
       //               <<
       //               Processes::children_group << std::endl;
-      //               int result = setpnode_id(pid,Processes::children_group);
+      //               int result = setpgid(pid,Processes::children_group);
       //               if (result < 0) i->raiseerror(systemerror(i));
       //             }
     }
@@ -336,7 +355,7 @@ Processes::Sysexec_aFunction::execute( SLIInterpreter* i ) const
 
   // this is an array of tokens (to names)
   ArrayDatum* array = dynamic_cast< ArrayDatum* >( array_token.datum() );
-  assert( array );
+  assert( array != NULL );
 
   assert( array->size() > 0 ); // need at least the commandname
 
@@ -348,24 +367,24 @@ Processes::Sysexec_aFunction::execute( SLIInterpreter* i ) const
   // **argv denotes an pointer to an array which is allocated dynamically
   // the old formulation char *argv[array->size() + 1]; is no longer legal c++
   // (Ruediger!!)
-  char** argv = new char*[ array->size() + 1 ];
+  char** argv = new char* [ array->size() + 1 ];
 
   for ( unsigned int j = 0; j < array->size(); j++ ) // forall in array
   {
     StringDatum* nd = dynamic_cast< StringDatum* >( ( *array )[ j ].datum() );
-    assert( nd );
+    assert( nd != NULL );
     // StringDatum is derived from class string.
     argv[ j ] = const_cast< char* >( nd->c_str() );
   }
 
   char* command = argv[ 0 ];
-  argv[ array->size() ] = nullptr;
+  argv[ array->size() ] = NULL;
   int result = execvp( command, argv );
   //  int result = execvp(command, const_cast<char * const *> (argv) );
   delete[] argv;
 
   if ( result == -1 )
-  {                                     // an error occurred!
+  {                                     // an error occured!
     i->OStack.push_move( array_token ); // restore operand stack
     i->raiseerror( systemerror( i ) );
   }
@@ -380,11 +399,13 @@ Processes::WaitPIDFunction::execute( SLIInterpreter* i ) const
   assert( i->OStack.load() >= 2 ); // waitPID takes 2 arguments
 
   // Read arguments from operand Stack, but leave tokens on stack:
-  IntegerDatum* pidin_d = dynamic_cast< IntegerDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( pidin_d );
+  IntegerDatum* pidin_d =
+    dynamic_cast< IntegerDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( pidin_d != NULL );
 
-  BoolDatum* nohangflag_d = dynamic_cast< BoolDatum* >( i->OStack.top().datum() );
-  assert( nohangflag_d );
+  BoolDatum* nohangflag_d =
+    dynamic_cast< BoolDatum* >( i->OStack.top().datum() );
+  assert( nohangflag_d != NULL );
 
   // call waitpid()
   int stat_value;
@@ -396,7 +417,7 @@ Processes::WaitPIDFunction::execute( SLIInterpreter* i ) const
   pid_t pidout = waitpid( pidin_d->get(), &stat_value, options );
 
   // Check for error
-  if ( pidout == -1 ) // an Error occurred
+  if ( pidout == -1 ) // an Error occured
   {
     i->raiseerror( systemerror( i ) );
   }
@@ -434,7 +455,8 @@ Processes::WaitPIDFunction::execute( SLIInterpreter* i ) const
     {
       i->EStack.pop();
       ( *normalexitflag_d ) = false;
-      ( *status_d ) = WTERMSIG( stat_value ); // return number of terminating signal
+      ( *status_d ) =
+        WTERMSIG( stat_value ); // return number of terminating signal
     }
     else
     {
@@ -452,17 +474,19 @@ Processes::KillFunction::execute( SLIInterpreter* i ) const
   assert( i->OStack.load() >= 2 ); // kill takes 2 arguments
 
   // Read arguments from operand Stack, but leave tokens on stack:
-  IntegerDatum* pid_d = dynamic_cast< IntegerDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( pid_d );
+  IntegerDatum* pid_d =
+    dynamic_cast< IntegerDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( pid_d != NULL );
 
-  IntegerDatum* signal_d = dynamic_cast< IntegerDatum* >( i->OStack.top().datum() );
-  assert( signal_d );
+  IntegerDatum* signal_d =
+    dynamic_cast< IntegerDatum* >( i->OStack.top().datum() );
+  assert( signal_d != NULL );
 
   // call kill()
   int result = kill( pid_d->get(), signal_d->get() );
 
   if ( result == -1 )
-  { // an error occurred!
+  { // an error occured!
     i->raiseerror( systemerror( i ) );
   }
   else
@@ -481,7 +505,7 @@ Processes::PipeFunction::execute( SLIInterpreter* i ) const
   int result = pipe( filedes );
 
   if ( result == -1 )
-  { // an error occurred!
+  { // an error occured!
     i->raiseerror( systemerror( i ) );
   }
   else
@@ -507,10 +531,11 @@ Processes::Dup2_is_isFunction::execute( SLIInterpreter* i ) const
   assert( i->OStack.load() >= 2 ); // dup2 takes 2 arguments
 
   // Read arguments from operand Stack, but leave tokens on stack:
-  IstreamDatum* s_d1 = dynamic_cast< IstreamDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( s_d1 );
+  IstreamDatum* s_d1 =
+    dynamic_cast< IstreamDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( s_d1 != NULL );
   IstreamDatum* s_d2 = dynamic_cast< IstreamDatum* >( i->OStack.top().datum() );
-  assert( s_d2 );
+  assert( s_d2 != NULL );
 
   // call dup2();
   // int result = dup2( fd(s_d1->get()) , fd(s_d2->get()) );//using get() on a
@@ -523,7 +548,7 @@ Processes::Dup2_is_isFunction::execute( SLIInterpreter* i ) const
   // istream)
 
   if ( result == -1 )
-  { // an error occurred!
+  { // an error occured!
     i->raiseerror( systemerror( i ) );
   }
   else
@@ -541,10 +566,11 @@ Processes::Dup2_os_osFunction::execute( SLIInterpreter* i ) const
   assert( i->OStack.load() >= 2 ); // dup2 takes 2 arguments
 
   // Read arguments from operand Stack, but leave tokens on stack:
-  OstreamDatum* s_d1 = dynamic_cast< OstreamDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( s_d1 );
+  OstreamDatum* s_d1 =
+    dynamic_cast< OstreamDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( s_d1 != NULL );
   OstreamDatum* s_d2 = dynamic_cast< OstreamDatum* >( i->OStack.top().datum() );
-  assert( s_d2 );
+  assert( s_d2 != NULL );
 
   // call dup2();
   // for comments on LockPTRs see Dup2_is_isFunction::execute
@@ -569,10 +595,11 @@ Processes::Dup2_is_osFunction::execute( SLIInterpreter* i ) const
   assert( i->OStack.load() >= 2 ); // dup2 takes 2 arguments
 
   // Read arguments from operand Stack, but leave tokens on stack:
-  IstreamDatum* s_d1 = dynamic_cast< IstreamDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( s_d1 );
+  IstreamDatum* s_d1 =
+    dynamic_cast< IstreamDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( s_d1 != NULL );
   OstreamDatum* s_d2 = dynamic_cast< OstreamDatum* >( i->OStack.top().datum() );
-  assert( s_d2 );
+  assert( s_d2 != NULL );
 
   // call dup2();
   // int result = dup2( fd(s_d1->get()) , fd(s_d2->get()) );//using get() on a
@@ -603,10 +630,11 @@ Processes::Dup2_os_isFunction::execute( SLIInterpreter* i ) const
   assert( i->OStack.load() >= 2 ); // dup2 takes 2 arguments
 
   // Read arguments from operand Stack, but leave tokens on stack:
-  OstreamDatum* s_d1 = dynamic_cast< OstreamDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( s_d1 );
+  OstreamDatum* s_d1 =
+    dynamic_cast< OstreamDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( s_d1 != NULL );
   IstreamDatum* s_d2 = dynamic_cast< IstreamDatum* >( i->OStack.top().datum() );
-  assert( s_d2 );
+  assert( s_d2 != NULL );
 
   // call dup2();
   // for comments on LockPTRs see Dup2_is_isFunction::execute
@@ -629,9 +657,10 @@ Processes::AvailableFunction::execute( SLIInterpreter* i ) const
 {
   assert( i->OStack.load() >= 1 ); // available takes 1 argument
 
-  IstreamDatum* istreamdatum = dynamic_cast< IstreamDatum* >( i->OStack.top().datum() );
+  IstreamDatum* istreamdatum =
+    dynamic_cast< IstreamDatum* >( i->OStack.top().datum() );
 
-  assert( istreamdatum );
+  assert( istreamdatum != 0 );
   assert( istreamdatum->valid() );
 
   if ( not( **istreamdatum ).good() )
@@ -662,12 +691,12 @@ Processes::AvailableFunction::execute( SLIInterpreter* i ) const
     //       fcntl(fd,F_SETFL,flags); //reset to old value
     //       // ------------------------------
 
-    //       if ( (peekchar==-1) and (errno!=EAGAIN) and (errno!=ESPIPE) )
-    //         {// some unexpected error occurred!
+    //       if ( (peekchar==-1) && (errno!=EAGAIN) && (errno!=ESPIPE) )
+    //         {// some unexpected error occured!
     //           i->raiseerror(systemerror(i));
     //         }
     //       else
-    //         {// no error or EAGAIN or ESPIPE occurred
+    //         {// no error or EAGAIN or ESPIPE occured
     //           i->EStack.pop();
     //           bool result;
     //           if ( peekchar==-1 ) // errno==EAGAIN or errno==ESPIPE
@@ -704,7 +733,7 @@ Processes::AvailableFunction::execute( SLIInterpreter* i ) const
 
     bool result;
     if ( not( **istreamdatum ).good() )
-    { // an error occurred. No data can be read.
+    { // an error occured. No data can be read.
       // no data is currently available
       result = false;             // no data is available
       ( **istreamdatum ).clear(); // Lower eof and error Flag
@@ -795,7 +824,7 @@ Processes::MkfifoFunction::execute( SLIInterpreter* i ) const
 
   // Read arguments from operand Stack, but leave tokens on stack:
   StringDatum* s_d = dynamic_cast< StringDatum* >( i->OStack.top().datum() );
-  assert( s_d );
+  assert( s_d != NULL );
 
   // call mkfifo();
   mode_t mode = S_IRWXU | S_IRWXG | S_IRWXO; // Try to give all permissions,
@@ -815,8 +844,34 @@ Processes::MkfifoFunction::execute( SLIInterpreter* i ) const
   }
 }
 
+#if defined IS_BLUEGENE_P || defined IS_BLUEGENE_Q
+/* BeginDocumentation
+ Name: memory_thisjob_bg - Reports memory usage on Blue Gene/P/Q systems
+ Description:
+ memory_thisjob_bg returns a dictionary with the heap and stack memory
+ usage of a process in Bytes.
+ Availability: Processes
+ Author: Jochen Martin Eppler
+ */
+void
+Processes::MemoryThisjobBgFunction::execute( SLIInterpreter* i ) const
+{
+  DictionaryDatum dict( new Dictionary );
+
+  unsigned long heap_memory = bg_get_heap_mem();
+  ( *dict )[ "heap" ] = heap_memory;
+  unsigned long stack_memory = bg_get_stack_mem();
+  ( *dict )[ "stack" ] = stack_memory;
+  unsigned long mmap_memory = bg_get_mmap_mem();
+  ( *dict )[ "mmap" ] = mmap_memory;
+
+  i->OStack.push( dict );
+  i->EStack.pop();
+}
+#endif
+
 #if defined __APPLE__ && defined HAVE_MACH_MACH_H
-/** @BeginDocumentation
+/* BeginDocumentation
  Name: memory_thisjob_darwin - Reports memory usage on Darwin/Apple systems
  Description:
  memory_thisjob_darwin returns the resident memory usage of a process in Bytes.
@@ -838,12 +893,13 @@ Processes::SetNonblockFunction::execute( SLIInterpreter* i ) const
 {
   assert( i->OStack.load() >= 2 ); // setNONBLOCK takes 2 arguments
 
-  IstreamDatum* istreamdatum = dynamic_cast< IstreamDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( istreamdatum );
+  IstreamDatum* istreamdatum =
+    dynamic_cast< IstreamDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( istreamdatum != 0 );
   assert( istreamdatum->valid() );
 
   BoolDatum* newflag_d = dynamic_cast< BoolDatum* >( i->OStack.top().datum() );
-  assert( newflag_d );
+  assert( newflag_d != NULL );
 
   // get filedescriptor:
   // istreamdatum is a pointer to a LockPTR
@@ -854,7 +910,7 @@ Processes::SetNonblockFunction::execute( SLIInterpreter* i ) const
   int flags = fcntl( fd, F_GETFL );
   if ( flags == -1 )
   {
-    i->raiseerror( systemerror( i ) ); // an error occurred!
+    i->raiseerror( systemerror( i ) ); // an error occured!
   }
 
   // modify flags to the new value:
@@ -873,7 +929,7 @@ Processes::SetNonblockFunction::execute( SLIInterpreter* i ) const
 
 
   if ( result == -1 )
-  { // an error occurred!
+  { // an error occured!
     i->raiseerror( systemerror( i ) );
   }
   else
@@ -904,8 +960,9 @@ Processes::Isatty_osFunction::execute( SLIInterpreter* i ) const
   assert( i->OStack.load() >= 1 );
 
   // Read arguments from operand Stack, but leave tokens on stack:
-  OstreamDatum* s_d1 = dynamic_cast< OstreamDatum* >( i->OStack.pick( 0 ).datum() );
-  assert( s_d1 );
+  OstreamDatum* s_d1 =
+    dynamic_cast< OstreamDatum* >( i->OStack.pick( 0 ).datum() );
+  assert( s_d1 != NULL );
 
   int fd = Processes::fd( **s_d1 ); // Get FileDescriptor
 
@@ -929,8 +986,9 @@ Processes::Isatty_isFunction::execute( SLIInterpreter* i ) const
   assert( i->OStack.load() >= 1 );
 
   // Read arguments from operand Stack, but leave tokens on stack:
-  IstreamDatum* s_d1 = dynamic_cast< IstreamDatum* >( i->OStack.pick( 0 ).datum() );
-  assert( s_d1 );
+  IstreamDatum* s_d1 =
+    dynamic_cast< IstreamDatum* >( i->OStack.pick( 0 ).datum() );
+  assert( s_d1 != NULL );
 
   int fd = Processes::fd( **s_d1 ); // Get FileDescriptor
 

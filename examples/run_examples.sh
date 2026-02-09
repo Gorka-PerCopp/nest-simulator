@@ -19,162 +19,83 @@
 # You should have received a copy of the GNU General Public License
 # along with NEST.  If not, see <http://www.gnu.org/licenses/>.
 
-if ! command -v nest; then
-    echo "ERROR: command 'nest' not found. Please make sure PATH is set correctly"
-    echo "       by sourcing the script nest_vars.sh from your NEST installation."
-    exit 1
-fi
+set -e
 
-if ! python3 -c "import nest" >/dev/null 2>&1; then
-    echo "ERROR: PyNEST is not available. Please make sure PYTHONPATH is set correctly"
-    echo "       by sourcing the script nest_vars.sh from your NEST installation."
-    exit 1
-fi
-
-# set bash strict mode
-set -euo pipefail
-set -x
-IFS=$' \n\t'
-
-# current directory where all results are save is "basedir"
-basedir="$PWD"
-# source tree where all input scripts/data can be found is "sourcedir"
-sourcedir="$(realpath "$(dirname "$0")/..")"
-
-declare -a EXAMPLES
-if [ "${#}" -eq 0 ]; then
-    # Find all examples that have a line containing "autorun=true"
-    # The examples can be found in subdirectory nest and in the
-    # examples installation path.
-    EXAMPLELIST="$(mktemp examplelist.XXXXXXXXXX)"
-    if [ -d "nest/" ] ; then
-        grep -rl --include='*.sli' 'autorun=true' "${sourcedir}/nest/" >>"$EXAMPLELIST" || true
-    else
-        grep -rl --include='*.sli' 'autorun=true' "${sourcedir}/examples/" >>"$EXAMPLELIST" || true
-    fi
-    find "${sourcedir}/pynest/examples" -name '*.py' >>"$EXAMPLELIST" || true
-    readarray -t EXAMPLES <"$EXAMPLELIST"  # append each example found above
-    rm "$EXAMPLELIST"
-else
-    EXAMPLES+=( "${@}" )
-fi
-
-for i in $(seq 0 $(( ${#EXAMPLES[@]}-1))); do
-    if echo "${EXAMPLES[$i]}" | grep -vE "${SKIP_LIST}" >/dev/null; then
-        unset "EXAMPLES['$i']"
-    fi
-done
-
-# turn off plotting to the screen and waiting for input
-MPLCONFIGDIR="$(pwd)/matplotlib/"
-export MPLCONFIGDIR
-
-INFO_OS="$(uname -s)"
-
-# find "time" command
-if test "${INFO_OS:-}" = "Darwin"; then
-    if which gtime >/dev/null; then
-        # https://www.man7.org/linux/man-pages/man1/time.1.html
-        #
-        # Silence the warning, as we explicitly do the aliassing to have a
-        # defined time-binary to call. No need to re-lookup each call.
-        # SC2139 (warning): This expands when defined, not when used. Consider escaping.
-        # shellcheck disable=SC2139
-        alias time="$(which gtime) -f '  time: {real: %E, user: %U, system: %S}\n  memory: {total: %K, max_rss: %M}' --quiet"
-    else
-        if command -v gtime >/dev/null; then
-            alias time="\$(command -v gtime) -f '  time: {real: %E, user: %U, system: %S}\n  memory: {total: %K, max_rss: %M}' --quiet"
-        elif command -v time >/dev/null; then
-            # bash built-in time does not have memory information and uses TIMEFORMAT env variable
-            TIMEFORMAT="  time: {real: %E, user: %U, system: %S}"
-            export TIMEFORMAT
-        else
-            echo "'time' does not work on macOS. Try 'brew install gnu-time' or provide a compatible command by different means."
-            exit 1;
-        fi
-    fi
-else
-    # bash built-in time does not have memory information and uses TIMEFORMAT env variable
-    TIMEFORMAT="  time: {real: %E, user: %U, system: %S}"
-    export TIMEFORMAT
-    if ! command -v time >/dev/null; then
-        echo "could not determine a 'time' command. aborting"
-        exit 1;
-    fi
-fi
+SKIP_LIST="
+    MyModule/sli/example.sli
+    Potjans_2014/spike_analysis.py
+    Potjans_2014/user_params.sli
+    ReadData_demo.sli
+    music/
+    nestrc.sli
+    neuronview.py
+    plot_tsodyks_depr_fac.py
+    plot_tsodyks_shortterm_bursts.py
+"
 
 FAILURES=0
-START="${SECONDS}"
-for i in "${EXAMPLES[@]}"; do
 
-    cd "$(dirname "$i")"
+# Trim leading and trailing whitespace and make gaps exactly one space large
+SKIP_LIST=$(echo $SKIP_LIST | sed -e 's/ +/ /g' -e 's/^ *//' -e 's/ *$//')
 
-    workdir="$PWD"
-    example="$(basename "$i")"
+# Create a regular expression for grep that removes the excluded files
+case "$SKIP_LIST" in  
+    *\ * ) # We have spaces in the list
+        SKIP='('$(echo $SKIP_LIST | tr ' ' '|' )')' ;;
+    *)
+        SKIP=$SKIP_LIST ;;
+esac
 
-    ext="$(echo "$example" | cut -d. -f2)"
+# Find all examples in the installation directory
+EXAMPLES=$(find ${SEARCH_DIR:-./examples} -type f -name \*.py -o -name \*.sli | sort -t. -k3)
 
-    if [ "${ext}" = "sli" ] ; then
-        runner="nest"
-    elif [ "${ext}" = "py" ] ; then
-        runner="python3"
+if test -n "$SKIP_LIST"; then
+    EXAMPLES=$(echo $EXAMPLES | tr ' ' '\n' | grep -vE $SKIP)
+fi
+
+basedir=$PWD
+START=$SECONDS
+for i in $EXAMPLES ; do
+
+    cd $(dirname $i)
+
+    workdir=$PWD
+    example=$(basename $i)
+
+    ext=$(echo $example | cut -d. -f2)
+
+    if [ $ext = sli ] ; then
+        runner=nest
+    elif [ $ext = py ] ; then
+        runner=$(nest-config --python-executable)
     fi
-
-    output_dir="$basedir/example_logs/$example"
-    logfile="$output_dir/output.log"
-    metafile="$output_dir/meta.yaml"
-    mkdir -pv "$output_dir"
 
     echo ">>> RUNNING: $workdir/$example"
-    echo "    LOGFILE: $logfile"
-    {
-        echo "- script: '$workdir/$example'"
-        echo "  output_dir: '$output_dir'"
-        echo "  log: '$logfile'"
-    } >>"$metafile"
 
-    export NEST_DATA_PATH="$output_dir"
-    touch .start_example
-    #sleep 1  # why was this needed?!
     set +e
-    time sh -c "'$runner' '$example' >'$logfile' 2>&1" 2>&1 | tee -a "$metafile"
-    ret=$?
-    set -e
+    $runner $example
 
-    outfiles=false
-    find . -newer .start_example | while read -r file; do
-        if ! $outfiles; then
-            echo "  output_files:" >>"$metafile"
-            outfiles="true"
-        fi
-        echo "  - '$file'" >>"$metafile"
-    done
-    echo "  return_code: $ret" >>"$metafile"
-    if [ $ret != 0 ] ; then
-        echo "    FAILURE!"
-        echo "  result: failed" >>"$metafile"
-        FAILURES="$(( FAILURES + 1 ))"
-        OUTPUT="$(printf "        %s\n        %s\n" "${OUTPUT:-}" "$workdir/$example")"
+    if [ $? != 0 ] ; then
+        echo ">>> FAILURE: $workdir/$example"
+        FAILURES=$(( $FAILURES + 1 ))
+        OUTPUT=$(printf "        %s\n        %s\n" "$OUTPUT" "$workdir/$example")
     else
-        echo "    SUCCESS!"
-        echo "  result: success" >>"$metafile"
+        echo ">>> SUCCESS: $example"
     fi
     echo
+    set -e
 
-    unset NEST_DATA_PATH
-    cd "$basedir"
+    cd $basedir
+
 done
-ELAPSED_TIME="$(( SECONDS - START ))"
+ELAPSED_TIME=$(($SECONDS - $START))
 
-echo ">>> Longest running examples:"
-grep -Eo "real: [^,]+" example_logs/*/meta.yaml | sed -e 's/:real://' | sort -k2 -rg | head -n 15 || true
+echo ">>> RESULTS: $FAILURES /" $(echo $EXAMPLES | wc -w) "(failed / total)"
+echo ">>> TIME: $(($ELAPSED_TIME/60)) min $(($ELAPSED_TIME%60)) sec."
 
-echo ">>> RESULTS: ${FAILURES} failed /$(echo "${EXAMPLES[*]}" | wc -w) total"
-echo ">>> TOTAL TIME: $((ELAPSED_TIME/60)) min $((ELAPSED_TIME%60)) sec."
-
-if [ -n "${OUTPUT+x}" ] ; then
+if [ "x$OUTPUT" != "x" ] ; then
     echo ">>> Failed examples:"
-    echo "${OUTPUT}"
+    echo "$OUTPUT"
     echo ""
     exit 1
 fi

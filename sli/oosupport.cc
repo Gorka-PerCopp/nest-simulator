@@ -38,13 +38,13 @@ OOSupportModule::init( SLIInterpreter* i )
 }
 
 const std::string
-OOSupportModule::commandstring() const
+OOSupportModule::commandstring( void ) const
 {
   return std::string( "(oosupport.sli) run" );
 }
 
 const std::string
-OOSupportModule::name() const
+OOSupportModule::name( void ) const
 {
   return std::string( "OOSupport" );
 }
@@ -54,14 +54,16 @@ OOSupportModule::CallMemberFunction::execute( SLIInterpreter* i ) const
 {
   //  call: dict key call -> unknown
 
-  DictionaryDatum* dict = dynamic_cast< DictionaryDatum* >( i->OStack.pick( 1 ).datum() );
-  assert( dict );
-  LiteralDatum* key = dynamic_cast< LiteralDatum* >( i->OStack.pick( 0 ).datum() );
-  assert( key );
+  DictionaryDatum* dict =
+    dynamic_cast< DictionaryDatum* >( i->OStack.pick( 1 ).datum() );
+  assert( dict != NULL );
+  LiteralDatum* key =
+    dynamic_cast< LiteralDatum* >( i->OStack.pick( 0 ).datum() );
+  assert( key != NULL );
 
   Token value = ( *dict )->lookup( *key );
 
-  if ( value.datum() )
+  if ( value.datum() != NULL )
   {
     Token nt( new NameDatum( *key ) );
     i->DStack->push( *dict );

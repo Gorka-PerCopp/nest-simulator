@@ -20,6 +20,8 @@
  *
  */
 
+// Generated includes:
+#include "config.h"
 
 // Includes from nest:
 #include "neststartup.h"

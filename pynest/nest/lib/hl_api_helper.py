@@ -24,51 +24,25 @@ These are helper functions to ease the definition of the high-level
 API of the PyNEST wrapper.
 """
 
-import functools
-import json
-import os
-import pydoc
-import textwrap
 import warnings
+import inspect
+import json
+import functools
+import textwrap
+import subprocess
+import os
+import re
+import sys
+
 from string import Template
 
-from .. import pynestkernel as kernel
-from ..ll_api import sli_func, spp, sps, sr
+# These variables MUST be set by __init__.py right after importing.
+# There is no safety net, whatsoever.
+sps = spp = sr = pcd = kernel = None
 
-__all__ = [
-    "broadcast",
-    "deprecated",
-    "get_parameters",
-    "get_parameters_hierarchical_addressing",
-    "get_wrapped_text",
-    "is_iterable",
-    "is_literal",
-    "is_sequence_of_connections",
-    "is_sequence_of_node_ids",
-    "is_string",
-    "load_help",
-    "model_deprecation_warning",
-    "restructure_data",
-    "show_deprecation_warning",
-    "show_help_with_pager",
-    "stringify_path",
-    "SuppressedDeprecationWarning",
-]
-
-# These flags are used to print deprecation warnings only once.
-# Only flags for special cases need to be entered here, such as special models
-# or function parameters, all flags for deprecated functions will be registered
-# by the @deprecated decorator, and therefore does not manually need to be placed here.
-_deprecation_warning = {"deprecated_model": {"deprecation_issued": False, "replacement": "replacement_mod"}}
-
-
-def format_Warning(message, category, filename, lineno, line=None):
-    """Formats deprecation warning."""
-
-    return "%s:%s: %s:%s\n" % (filename, lineno, category.__name__, message)
-
-
-warnings.formatwarning = format_Warning
+# These flags are used to print deprecation warnings only once. The
+# corresponding functions will be removed in the 2.6 release of NEST.
+_deprecation_warning = {'BackwardCompatibilityConnect': True}
 
 
 def get_wrapped_text(text, width=80):
@@ -87,7 +61,7 @@ def get_wrapped_text(text, width=80):
     """
 
     lines = text.split("\n")
-    lines = [textwrap.fill(" ".join(line.split()), width=width) for line in lines]
+    lines = [textwrap.fill(" ".join(l.split()), width=width) for l in lines]
     return "\n".join(lines)
 
 
@@ -99,20 +73,23 @@ def show_deprecation_warning(func_name, alt_func_name=None, text=None):
     func_name : str
         Name of the deprecated function
     alt_func_name : str, optional
-        Name of the function to use instead. Needed if text=None
+        Name of the function to use instead
     text : str, optional
         Text to display instead of standard text
     """
-    if func_name in _deprecation_warning:
-        if not _deprecation_warning[func_name]["deprecation_issued"]:
-            if text is None:
-                text = (
-                    "{0} is deprecated and will be removed in a future version of NEST.\n" "Please use {1} instead!"
-                ).format(func_name, alt_func_name)
-                text = get_wrapped_text(text)
+    if _deprecation_warning[func_name]:
+        if alt_func_name is None:
+            alt_func_name = 'Connect'
+        if text is None:
+            text = "{0} is deprecated and will be removed in a future \
+            version of NEST.\nPlease use {1} instead!\n\
+            For details, see\
+            http://www.nest-simulator.org/connection_management\
+            ".format(func_name, alt_func_name)
+            text = get_wrapped_text(text)
 
-            warnings.warn("\n" + text)  # add LF so text starts on new line
-            _deprecation_warning[func_name]["deprecation_issued"] = True
+        warnings.warn('\n' + text)   # add LF so text starts on new line
+        _deprecation_warning[func_name] = False
 
 
 # Since we need to pass extra arguments to the decorator, we need a
@@ -125,7 +102,7 @@ def deprecated(alt_func_name, text=None):
     Parameters
     ----------
     alt_func_name : str, optional
-        Name of the function to use instead, may be empty string
+        Name of the function to use instead
     text : str, optional
         Text to display instead of standard text
 
@@ -136,41 +113,32 @@ def deprecated(alt_func_name, text=None):
     """
 
     def deprecated_decorator(func):
-        _deprecation_warning[func.__name__] = {"deprecation_issued": False}
+        _deprecation_warning[func.__name__] = True
 
         @functools.wraps(func)
         def new_func(*args, **kwargs):
             show_deprecation_warning(func.__name__, alt_func_name, text=text)
             return func(*args, **kwargs)
-
         return new_func
 
     return deprecated_decorator
 
 
-def stringify_path(filepath):
-    """
-    Convert path-like object to string form.
-
-    Attempt to convert path-like object to a string by coercing objects
-    supporting the fspath protocol to its ``__fspath__`` method. Anything that
-    is not path-like, which includes bytes and strings, is passed through
-    unchanged.
-
-    Parameters
-    ----------
-    filepath : object
-        Object representing file system path.
+def get_unistring_type():
+    """Returns string type dependent on python version.
 
     Returns
     -------
-    filepath : str
-        Stringified filepath.
-    """
+    str or basestring:
+        Depending on Python version
 
-    if isinstance(filepath, os.PathLike):
-        filepath = filepath.__fspath__()  # should return str or bytes object
-    return filepath
+    """
+    import sys
+    if sys.version_info[0] < 3:
+        return basestring
+    return str
+
+uni_str = get_unistring_type()
 
 
 def is_literal(obj):
@@ -186,7 +154,7 @@ def is_literal(obj):
     bool:
         True if obj is a "literal"
     """
-    return isinstance(obj, (str, kernel.SLILiteral))
+    return isinstance(obj, (uni_str, kernel.SLILiteral))
 
 
 def is_string(obj):
@@ -202,7 +170,109 @@ def is_string(obj):
     bool:
         True if obj is a unicode string
     """
-    return isinstance(obj, str)
+    return isinstance(obj, uni_str)
+
+__debug = False
+
+
+def get_debug():
+    """Return the current value of the debug flag of the high-level API.
+
+    Returns
+    -------
+    bool:
+        current value of the debug flag
+    """
+
+    global __debug
+    return __debug
+
+
+def set_debug(dbg=True):
+    """Set the debug flag of the high-level API.
+
+    Parameters
+    ----------
+    dbg : bool, optional
+        Value to set the debug flag to
+    """
+
+    global __debug
+    __debug = dbg
+
+
+def stack_checker(f):
+    """Decorator to add stack checks to functions using PyNEST's
+    low-level API.
+
+    This decorator works only on functions. See
+    check_stack() for the generic version for functions and
+    classes.
+
+    Parameters
+    ----------
+    f : function
+        Function to decorate
+
+    Returns
+    -------
+    function:
+        Decorated function
+
+    Raises
+    ------
+    kernel.NESTError
+    """
+
+    @functools.wraps(f)
+    def stack_checker_func(*args, **kwargs):
+        if not get_debug():
+            return f(*args, **kwargs)
+        else:
+            sr('count')
+            stackload_before = spp()
+            result = f(*args, **kwargs)
+            sr('count')
+            num_leftover_elements = spp() - stackload_before
+            if num_leftover_elements != 0:
+                eargs = (f.__name__, num_leftover_elements)
+                etext = "Function '%s' left %i elements on the stack."
+                raise kernel.NESTError(etext % eargs)
+            return result
+
+    return stack_checker_func
+
+
+def check_stack(thing):
+    """Convenience wrapper for applying the stack_checker decorator to
+    all class methods of the given class, or to a given function.
+
+    If the object cannot be decorated, it is returned unchanged.
+
+    Parameters
+    ----------
+    thing : function or class
+        Description
+
+    Returns
+    -------
+    function or class
+        Decorated function or class
+
+    Raises
+    ------
+    ValueError
+    """
+
+    if inspect.isfunction(thing):
+        return stack_checker(thing)
+    elif inspect.isclass(thing):
+        for name, mtd in inspect.getmembers(thing, predicate=inspect.ismethod):
+            if name.startswith("test_"):
+                setattr(thing, name, stack_checker(mtd))
+        return thing
+    else:
+        raise ValueError("unable to decorate {0}".format(thing))
 
 
 def is_iterable(seq):
@@ -225,6 +295,28 @@ def is_iterable(seq):
         return False
 
     return True
+
+
+def is_coercible_to_sli_array(seq):
+    """Checks whether a given object is coercible to a SLI array
+
+    Parameters
+    ----------
+    seq : object
+        Object to check
+
+    Returns
+    -------
+    bool:
+        True if object is coercible to a SLI array
+    """
+
+    import sys
+
+    if sys.version_info[0] >= 3:
+        return isinstance(seq, (tuple, list, range))
+    else:
+        return isinstance(seq, (tuple, list, xrange))
 
 
 def is_sequence_of_connections(seq):
@@ -252,9 +344,9 @@ def is_sequence_of_connections(seq):
     return False
 
 
-def is_sequence_of_node_ids(seq):
+def is_sequence_of_gids(seq):
     """Checks whether the argument is a potentially valid sequence of
-    node IDs (non-negative integers).
+    GIDs (non-negative integers).
 
     Parameters
     ----------
@@ -264,7 +356,7 @@ def is_sequence_of_node_ids(seq):
     Returns
     -------
     bool:
-        True if object is a potentially valid sequence of node IDs
+        True if object is a potentially valid sequence of GIDs
     """
 
     return all(isinstance(n, int) and n >= 0 for n in seq)
@@ -297,34 +389,39 @@ def broadcast(item, length, allowed_types, name="item"):
     """
 
     if isinstance(item, allowed_types):
-        return length * (item,)
+        return length * (item, )
     elif len(item) == 1:
         return length * item
     elif len(item) != length:
-        raise TypeError(
-            "'{0}' must be a single value, a list with one element or a list with {1} elements.".format(name, length)
-        )
+        raise TypeError("'{0}' must be a single value, a list with " +
+                        "one element or a list with {1} elements.".format(
+                            name, length))
     return item
 
 
-def __show_help_in_modal_window(obj, help_text):
+def __check_nb():
+    """Return true if called from a Jupyter notebook."""
+    try:
+        return get_ipython().__class__.__name__.startswith('ZMQ')
+    except NameError:
+        return False
+
+
+def __show_help_in_modal_window(objname, hlptxt):
     """Open modal window with help text
 
     Parameters
     ----------
-    obj : string
-        The filename of the help file
-    help_text : string
-        Full help_text
+    objname :   str
+            filename
+    hlptxt  :   str
+            Full text
     """
 
-    help_text = json.dumps(help_text)
-    style = (
-        "<style>.modal-body p { display: block;unicode-bidi: embed; "
-        "font-family: monospace; white-space: pre; }</style>"
-    )
-    s = Template(
-        """
+    hlptxt = json.dumps(hlptxt)
+    style = "<style>.modal-body p { display: block;unicode-bidi: embed; " \
+            "font-family: monospace; white-space: pre; }</style>"
+    s = Template("""
        require(
            ["base/js/dialog"],
            function(dialog) {
@@ -337,86 +434,63 @@ def __show_help_in_modal_window(obj, help_text):
                });
            }
        );
-       """
-    )
+       """)
 
     from IPython.display import HTML, Javascript, display
-
     display(HTML(style))
-    display(Javascript(s.substitute(jstitle=obj, jstext=help_text)))
+
+    display(Javascript(s.substitute(jstitle=objname, jstext=hlptxt)))
 
 
-def get_help_fname(obj):
-    """Get file name for help object
+def get_help_filepath(hlpobj):
+    """Get file path of help object
 
-    Raises FileNotFound if no help is available for ``obj``.
-
-    Parameters
-    ----------
-    obj : string
-        Object to get help filename for
-
-    Returns
-    -------
-    string:
-        File name of the help text for obj
-    """
-
-    docdir = sli_func("statusdict/prgdocdir ::")
-    help_fname = os.path.join(docdir, "html", "models", f"{obj}.rst")
-
-    if os.path.isfile(help_fname):
-        return help_fname
-    else:
-        raise FileNotFoundError(f"Sorry, there is no help for '{obj}'.")
-
-
-def load_help(obj):
-    """Returns documentation of the given object in RST format
+    Prints message if no help is available for hlpobj.
 
     Parameters
     ----------
-    obj : string
+    hlpobj : string
         Object to display help for
 
     Returns
     -------
     string:
-        The documentation of the object or None if no help is available
+        Filepath of the help object or None if no help available
     """
 
-    help_fname = get_help_fname(obj)
-    with open(help_fname, "r", encoding="utf-8") as help_file:
-        help_text = help_file.read()
-    return help_text
+    helpdir = os.path.join(sli_func("statusdict/prgdocdir ::"), "help")
+    objname = hlpobj + '.hlp'
+    for dirpath, dirnames, files in os.walk(helpdir):
+        for hlp in files:
+            if hlp == objname:
+                objf = os.path.join(dirpath, objname)
+                return objf
+    else:
+        print("Sorry, there is no help for '" + hlpobj + "'.")
+        return None
 
 
-def show_help_with_pager(obj):
-    """Display help text for the given object in the Python pager
-
-    If called from within a Jupyter notebook, display help in a modal
-    window instead of in the pager.
+def load_help(hlpobj):
+    """Returns documentation of the object
 
     Parameters
     ----------
-    obj : object
-        Object to display
+    hlpobj : object
+        Object to display help for
 
+    Returns
+    -------
+    string:
+        The documentation of the object or None if no help available
     """
 
-    def check_nb():
-        try:
-            return get_ipython().__class__.__name__.startswith("ZMQ")
-        except NameError:
-            return False
-
-    help_text = load_help(obj)
-
-    if check_nb():
-        __show_help_in_modal_window(obj + ".rst", help_text)
-        return
-
-    pydoc.pager(help_text)
+    objf = get_help_filepath(hlpobj)
+    if objf:
+        with open(objf, 'r') as fhlp:
+            hlptxt = fhlp.read()
+        return hlptxt
+    else:
+        return None
 
 
 def __is_executable(path, candidate):
@@ -426,8 +500,113 @@ def __is_executable(path, candidate):
     return os.access(candidate, os.X_OK) and os.path.isfile(candidate)
 
 
+def show_help_with_pager(hlpobj, pager=None):
+    """Output of doc in python with pager or print
+
+    Parameters
+    ----------
+    hlpobj : object
+        Object to display
+    pager: str, optional
+        pager to use, False if you want to display help using print().
+    """
+
+    if sys.version_info < (2, 7, 8):
+        print("NEST help is only available with Python 2.7.8 or later.\n")
+        return
+
+    if 'NEST_INSTALL_DIR' not in os.environ:
+        print(
+            'NEST help needs to know where NEST is installed.'
+            'Please source nest_vars.sh or define NEST_INSTALL_DIR manually.')
+        return
+
+    # check that help is available
+    objf = get_help_filepath(hlpobj)
+    if objf is None:
+        return   # message is printed by get_help_filepath()
+
+    if __check_nb():
+        # Display help in notebook
+        # Load the helptext, check the file exists.
+        hlptxt = load_help(hlpobj)
+        if hlptxt:
+            # Opens modal window only in notebook.
+            objname = hlpobj + '.hlp'
+            __show_help_in_modal_window(objname, hlptxt)
+        return
+
+    if not pager and pager is not None:
+        # pager == False: display using print()
+        # Note: we cannot use "pager is False" as Numpy has its own False
+        hlptxt = load_help(hlpobj)
+        if hlptxt:
+            print(hlptxt)
+        return
+
+    # Help is to be displayed by pager
+    # try to find a pager if not explicitly given
+    if pager is None:
+        pager = sli_func('/page /command GetOption')
+
+        # pager == false if .nestrc does not define one
+        if not pager:
+            # Search for pager in path. The following is based on
+            # https://stackoverflow.com/questions/377017
+            for candidate in ['less', 'more', 'cat']:
+                if any(__is_executable(path, candidate)
+                       for path in os.environ['PATH'].split(os.pathsep)):
+                    pager = candidate
+                    break
+
+    # check that we have a pager
+    if not pager:
+        print('NEST help requires a pager program. You can configure '
+              'it in the .nestrc file in your home directory.')
+        return
+
+    try:
+        subprocess.check_call([pager, objf])
+    except (OSError, IOError, subprocess.CalledProcessError):
+        print('Displaying help with pager "{}" failed. '
+              'Please define a working parser in file .nestrc '
+              'in your home directory.'.format(pager))
+
+
+@check_stack
+def get_verbosity():
+    """Return verbosity level of NEST's messages.
+
+    Returns
+    -------
+    int:
+        The current verbosity level
+    """
+
+    # Defined in hl_api_helper to avoid circular inclusion problem with
+    # hl_api_info.py
+    sr('verbosity')
+    return spp()
+
+
+@check_stack
+def set_verbosity(level):
+    """Change verbosity level for NEST's messages.
+
+    Parameters
+    ----------
+    level : str
+        Can be one of 'M_FATAL', 'M_ERROR', 'M_WARNING', 'M_DEPRECATED',
+        'M_INFO' or 'M_ALL'.
+    """
+
+    # Defined in hl_api_helper to avoid circular inclusion problem with
+    # hl_api_info.py
+    sr("{} setverbosity".format(level))
+
+
 def model_deprecation_warning(model):
-    """Checks whether the model is to be removed in a future version of NEST.
+    """Checks whether the model is to be removed in a future verstion of NEST.
     If so, a deprecation warning is issued.
 
     Parameters
@@ -436,148 +615,18 @@ def model_deprecation_warning(model):
         Name of model
     """
 
-    if model in _deprecation_warning:
-        if not _deprecation_warning[model]["deprecation_issued"]:
-            text = (
-                "The {0} model is deprecated and will be removed in a future version of NEST, " "use {1} instead."
-            ).format(model, _deprecation_warning[model]["replacement"])
-            show_deprecation_warning(model, text=text)
+    deprecated_models = {'subnet': 'GIDCollection',
+                         'aeif_cond_alpha_RK5': 'aeif_cond_alpha'}
+
+    if model in deprecated_models:
+        text = "The {0} model is deprecated and will be removed in a \
+        future version of NEST, use {1} instead.\
+        ".format(model, deprecated_models[model])
+        text = get_wrapped_text(text)
+        warnings.warn('\n' + text)
 
 
-def restructure_data(result, keys):
-    """
-    Restructure list of status dictionaries or list of parameter values to dict with lists or single list or int.
-
-    Parameters
-    ----------
-    result: list
-        list of status dictionaries or list (of lists) of parameter values.
-    keys: string or list of strings
-        name(s) of properties
-
-    Returns
-    -------
-    int, list or dict
-    """
-    if is_literal(keys):
-        if len(result) != 1:
-            all_keys = sorted({key for result_dict in result for key in result_dict})
-            final_result = []
-
-            for result_dict in result:
-                if keys in result_dict.keys():
-                    final_result.append(result_dict[keys])
-                elif keys in all_keys:
-                    final_result.append(None)
-        else:
-            final_result = result[0][keys]
-
-    elif is_iterable(keys):
-        final_result = (
-            {key: [val[i] for val in result] for i, key in enumerate(keys)}
-            if len(result) != 1
-            else {key: val[i] for val in result for i, key in enumerate(keys)}
-        )
-
-    elif keys is None:
-        if len(result) != 1:
-            all_keys = sorted({key for result_dict in result for key in result_dict})
-            final_result = {}
-
-            for key in all_keys:
-                final_result[key] = []
-                for result_dict in result:
-                    if key in result_dict.keys():
-                        final_result[key].append(result_dict[key])
-                    else:
-                        final_result[key].append(None)
-        else:
-            final_result = {key: result_dict[key] for result_dict in result for key in result[0]}
-    return final_result
-
-
-def get_parameters(nc, param):
-    """
-    Get parameters from nodes.
-
-    Used by NodeCollections `get()` function.
-
-    Parameters
-    ----------
-    nc: NodeCollection
-        nodes to get values from
-    param: string or list of strings
-        string or list of string naming model properties.
-
-    Returns
-    -------
-    int, list:
-        param is a string so the value(s) is returned
-    dict:
-        param is a list of string so a dictionary is returned
-    """
-    # param is single literal
-    if is_literal(param):
-        cmd = "/{} get".format(param)
-        sps(nc._datum)
-        try:
-            sr(cmd)
-            result = spp()
-        except kernel.NESTError:
-            result = nc.get()[param]  # If the NodeCollection is a composite.
-    # param is array of strings
-    elif is_iterable(param):
-        result = {param_name: nc.get(param_name) for param_name in param}
-    else:
-        raise TypeError("Params should be either a string or an iterable")
-
-    return result
-
-
-def get_parameters_hierarchical_addressing(nc, params):
-    """
-    Get parameters from nodes, hierarchical case.
-
-    Used by NodeCollections `get()` function.
-
-    Parameters
-    ----------
-    nc: NodeCollection
-        nodes to get values from
-    params: tuple
-        first value in the tuple should be a string, second can be a string or a list of string.
-        The first value corresponds to the path into the hierarchical structure
-        while the second value corresponds to the name(s) of the desired
-        properties.
-
-    Returns
-    -------
-    int, list:
-        params[-1] is a string so the value(s) is returned
-    dict:
-        params[-1] is a list of string so a dictionary is returned
-    """
-
-    # Right now, NEST only allows get(arg0, arg1) for hierarchical
-    # addressing, where arg0 must be a string and arg1 can be string
-    # or list of strings.
-    if is_literal(params[0]):
-        value_list = nc.get(params[0])
-        if not isinstance(value_list, tuple):
-            value_list = (value_list,)
-    else:
-        raise TypeError("First argument must be a string, specifying path into hierarchical dictionary")
-
-    result = restructure_data(value_list, None)
-
-    if is_literal(params[-1]):
-        result = result[params[-1]]
-    else:
-        result = {key: result[key] for key in params[-1]}
-    return result
-
-
-class SuppressedDeprecationWarning:
+class SuppressedDeprecationWarning(object):
     """
     Context manager turning off deprecation warnings for given methods.
 
@@ -595,24 +644,25 @@ class SuppressedDeprecationWarning:
                       for which to suppress deprecation warnings
         """
 
-        self._no_dep_funcs = no_dep_funcs if not is_string(no_dep_funcs) else (no_dep_funcs,)
+        self._no_dep_funcs = (no_dep_funcs if not is_string(no_dep_funcs)
+                              else (no_dep_funcs, ))
         self._deprecation_status = {}
-        sr("verbosity")  # Use sli-version as we cannon import from info because of cirular inclusion problem
-        self._verbosity_level = spp()
+        self._verbosity_level = get_verbosity()
 
     def __enter__(self):
+
         for func_name in self._no_dep_funcs:
             self._deprecation_status[func_name] = _deprecation_warning[func_name]  # noqa
-            _deprecation_warning[func_name]["deprecation_issued"] = True
+            _deprecation_warning[func_name] = False
 
             # Suppress only if verbosity level is deprecated or lower
-            if self._verbosity_level <= sli_func("M_DEPRECATED"):
-                # Use sli-version as we cannon import from info because of cirular inclusion problem
-                sr("{} setverbosity".format(sli_func("M_WARNING")))
+            if self._verbosity_level <= sli_func('M_DEPRECATED'):
+                set_verbosity(sli_func('M_WARNING'))
 
     def __exit__(self, *args):
-        # Reset the verbosity level and deprecation warning status
-        sr("{} setverbosity".format((self._verbosity_level)))
 
-        for func_name, deprec_dict in self._deprecation_status.items():
-            _deprecation_warning[func_name]["deprecation_issued"] = deprec_dict["deprecation_issued"]
+        # Reset the verbosity level and deprecation warning status
+        set_verbosity(self._verbosity_level)
+
+        for func_name, deprec_status in self._deprecation_status.items():
+            _deprecation_warning[func_name] = deprec_status

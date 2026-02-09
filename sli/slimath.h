@@ -37,7 +37,7 @@ public:
   Add_diFunction()
   {
   }
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Add_iiFunction : public SLIFunction
@@ -46,7 +46,7 @@ public:
   Add_iiFunction()
   {
   }
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Add_idFunction : public SLIFunction
@@ -55,7 +55,7 @@ public:
   Add_idFunction()
   {
   }
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Add_ddFunction : public SLIFunction
@@ -64,7 +64,7 @@ public:
   Add_ddFunction()
   {
   }
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 //---------------------------------------
 
@@ -74,7 +74,7 @@ public:
   Sub_diFunction()
   {
   }
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Sub_iiFunction : public SLIFunction
@@ -84,7 +84,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Sub_idFunction : public SLIFunction
@@ -94,7 +94,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Sub_ddFunction : public SLIFunction
@@ -104,7 +104,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 //---------------------------------------
 
@@ -115,7 +115,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Mul_iiFunction : public SLIFunction
@@ -125,7 +125,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Mul_idFunction : public SLIFunction
@@ -135,7 +135,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Mul_ddFunction : public SLIFunction
@@ -145,7 +145,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 //---------------------------------------
 
@@ -156,7 +156,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Div_iiFunction : public SLIFunction
@@ -166,7 +166,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Div_idFunction : public SLIFunction
@@ -176,7 +176,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 class Div_ddFunction : public SLIFunction
 {
@@ -185,7 +185,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 //--------------------------------------
@@ -197,7 +197,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 //--------------------------------------
 
@@ -209,7 +209,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Asin_dFunction : public SLIFunction
@@ -219,7 +219,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Cos_dFunction : public SLIFunction
@@ -229,7 +229,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Acos_dFunction : public SLIFunction
@@ -239,7 +239,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Exp_dFunction : public SLIFunction
@@ -249,7 +249,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Ln_dFunction : public SLIFunction
@@ -259,7 +259,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Log_dFunction : public SLIFunction
@@ -269,7 +269,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Sqr_dFunction : public SLIFunction
@@ -279,7 +279,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Sqrt_dFunction : public SLIFunction
@@ -289,7 +289,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Pow_ddFunction : public SLIFunction
@@ -299,7 +299,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Pow_diFunction : public SLIFunction
@@ -309,7 +309,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Modf_dFunction : public SLIFunction
@@ -319,7 +319,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Frexp_dFunction : public SLIFunction
@@ -329,7 +329,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Ldexp_diFunction : public SLIFunction
@@ -339,7 +339,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 
@@ -350,7 +350,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 
@@ -362,7 +362,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 class Abs_dFunction : public SLIFunction
 {
@@ -371,7 +371,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 //--------------------------------------
@@ -383,7 +383,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 class Neg_dFunction : public SLIFunction
 {
@@ -392,7 +392,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Inv_dFunction : public SLIFunction
@@ -402,7 +402,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 //-------------------------
@@ -414,7 +414,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class NeqFunction : public SLIFunction
@@ -424,7 +424,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class AndFunction : public SLIFunction
@@ -434,7 +434,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class OrFunction : public SLIFunction
@@ -444,7 +444,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class And_iiFunction : public SLIFunction
@@ -454,7 +454,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Or_iiFunction : public SLIFunction
@@ -464,7 +464,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class XorFunction : public SLIFunction
@@ -474,7 +474,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Not_bFunction : public SLIFunction
@@ -484,7 +484,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Not_iFunction : public SLIFunction
@@ -494,7 +494,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Geq_iiFunction : public SLIFunction
@@ -504,7 +504,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Geq_idFunction : public SLIFunction
@@ -514,7 +514,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Geq_diFunction : public SLIFunction
@@ -524,7 +524,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Geq_ddFunction : public SLIFunction
@@ -534,7 +534,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Leq_iiFunction : public SLIFunction
@@ -544,7 +544,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Leq_idFunction : public SLIFunction
@@ -554,7 +554,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Leq_diFunction : public SLIFunction
@@ -564,7 +564,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Leq_ddFunction : public SLIFunction
@@ -574,7 +574,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 
@@ -587,7 +587,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Gt_ddFunction : public SLIFunction
@@ -597,7 +597,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Gt_idFunction : public SLIFunction
@@ -607,7 +607,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Gt_diFunction : public SLIFunction
@@ -617,7 +617,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Gt_ssFunction : public SLIFunction
@@ -627,7 +627,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Lt_iiFunction : public SLIFunction
@@ -637,7 +637,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Lt_ddFunction : public SLIFunction
@@ -647,7 +647,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Lt_idFunction : public SLIFunction
@@ -657,7 +657,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Lt_diFunction : public SLIFunction
@@ -667,7 +667,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Lt_ssFunction : public SLIFunction
@@ -677,7 +677,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class IntegerFunction : public SLIFunction
@@ -687,7 +687,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class DoubleFunction : public SLIFunction
@@ -697,7 +697,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class UnitStep_iFunction : public SLIFunction
@@ -707,7 +707,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class UnitStep_dFunction : public SLIFunction
@@ -717,7 +717,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class UnitStep_iaFunction : public SLIFunction
@@ -727,7 +727,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class UnitStep_daFunction : public SLIFunction
@@ -737,7 +737,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Round_dFunction : public SLIFunction
@@ -746,7 +746,7 @@ public:
   Round_dFunction()
   {
   }
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Floor_dFunction : public SLIFunction
@@ -756,7 +756,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 class Ceil_dFunction : public SLIFunction
@@ -766,7 +766,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 
@@ -777,7 +777,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 class Max_i_dFunction : public SLIFunction
 {
@@ -786,7 +786,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 class Max_d_iFunction : public SLIFunction
 {
@@ -795,7 +795,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 class Max_d_dFunction : public SLIFunction
 {
@@ -804,7 +804,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 
@@ -815,7 +815,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 class Min_i_dFunction : public SLIFunction
 {
@@ -824,7 +824,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 class Min_d_iFunction : public SLIFunction
 {
@@ -833,7 +833,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 class Min_d_dFunction : public SLIFunction
 {
@@ -842,7 +842,7 @@ public:
   {
   }
 
-  void execute( SLIInterpreter* ) const override;
+  void execute( SLIInterpreter* ) const;
 };
 
 #endif

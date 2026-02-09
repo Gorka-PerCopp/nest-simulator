@@ -30,7 +30,6 @@
 
 // Includes from libnestutil:
 #include "compose.hpp"
-#include "enum_bitfield.h"
 
 // Includes from nestkernel:
 #include "connector_base.h"
@@ -38,7 +37,6 @@
 #include "kernel_manager.h"
 #include "nest_time.h"
 #include "nest_timeconverter.h"
-#include "secondary_event_impl.h"
 
 // Includes from sli:
 #include "dictutils.h"
@@ -46,9 +44,10 @@
 namespace nest
 {
 
-// standard implementation to obtain the default delay
+// standard implementation to obtain the default delay, assuming that it
+// is located in GenericConnectorModel::default_connection
 // synapse types with homogeneous delays must provide a specialization
-// that returns the default delay from CommonProperties (or from else where)
+// that returns the default delay from CommonProperties (or from  else where)
 // template<typename ConnectionT>
 // double get_default_delay(const GenericConnectorModel<ConnectionT> &cm)
 // {
@@ -64,18 +63,9 @@ namespace nest
 
 template < typename ConnectionT >
 ConnectorModel*
-GenericConnectorModel< ConnectionT >::clone( std::string name, synindex syn_id ) const
+GenericConnectorModel< ConnectionT >::clone( std::string name ) const
 {
-  ConnectorModel* new_cm = new GenericConnectorModel( *this, name ); // calls copy construtor
-  new_cm->set_syn_id( syn_id );
-
-  const bool is_primary = new_cm->has_property( ConnectionModelProperties::IS_PRIMARY );
-  if ( not is_primary )
-  {
-    new_cm->get_secondary_event()->add_syn_id( syn_id );
-  }
-
-  return new_cm;
+  return new GenericConnectorModel( *this, name ); // calls copy construtor
 }
 
 template < typename ConnectionT >
@@ -105,9 +95,8 @@ GenericConnectorModel< ConnectionT >::get_status( DictionaryDatum& d ) const
 
   ( *d )[ names::receptor_type ] = receptor_type_;
   ( *d )[ names::synapse_model ] = LiteralDatum( name_ );
-  ( *d )[ names::synapse_modelid ] = kernel().model_manager.get_synapse_model_id( name_ );
-  ( *d )[ names::requires_symmetric ] = has_property( ConnectionModelProperties::REQUIRES_SYMMETRIC );
-  ( *d )[ names::has_delay ] = has_property( ConnectionModelProperties::HAS_DELAY );
+  ( *d )[ names::requires_symmetric ] = requires_symmetric_;
+  ( *d )[ names::has_delay ] = has_delay_;
 }
 
 template < typename ConnectionT >
@@ -140,28 +129,6 @@ GenericConnectorModel< ConnectionT >::set_status( const DictionaryDatum& d )
 
 template < typename ConnectionT >
 void
-GenericConnectorModel< ConnectionT >::check_synapse_params( const DictionaryDatum& syn_spec ) const
-{
-  // This is called just once per Connect() call, so we need not worry much about performance.
-  // We get a dictionary with synapse default values and check if any of its keys are in syn_spec.
-  DictionaryDatum dummy( new Dictionary );
-  cp_.get_status( dummy );
-
-  for ( [[maybe_unused]] const auto& [ key, val ] : *syn_spec )
-  {
-    if ( dummy->known( key ) )
-    {
-      throw NotImplemented(
-        String::compose( "Synapse parameter \"%1\" can only be set via SetDefaults() or CopyModel().", key ) );
-    }
-  }
-
-  default_connection_.check_synapse_params( syn_spec );
-}
-
-
-template < typename ConnectionT >
-void
 GenericConnectorModel< ConnectionT >::used_default_delay()
 {
   // if not used before, check now. Solves bug #138, MH 08-01-08
@@ -173,10 +140,10 @@ GenericConnectorModel< ConnectionT >::used_default_delay()
   {
     try
     {
-      if ( has_property( ConnectionModelProperties::HAS_DELAY ) )
+      if ( has_delay_ )
       {
-        const double d = default_connection_.get_delay();
-        kernel().connection_manager.get_delay_checker().assert_valid_delay_ms( d );
+        kernel().connection_manager.get_delay_checker().assert_valid_delay_ms(
+          default_connection_.get_delay() );
       }
       // Let connections without delay contribute to the delay extrema with
       // wfr_comm_interval. For those connections the min_delay is important
@@ -186,8 +153,8 @@ GenericConnectorModel< ConnectionT >::used_default_delay()
       // without delay is created.
       else
       {
-        const double wfr_comm_interval = kernel().simulation_manager.get_wfr_comm_interval();
-        kernel().connection_manager.get_delay_checker().assert_valid_delay_ms( wfr_comm_interval );
+        kernel().connection_manager.get_delay_checker().assert_valid_delay_ms(
+          kernel().simulation_manager.get_wfr_comm_interval() );
       }
     }
     catch ( BadDelay& e )
@@ -195,19 +162,14 @@ GenericConnectorModel< ConnectionT >::used_default_delay()
       throw BadDelay( default_connection_.get_delay(),
         String::compose( "Default delay of '%1' must be between min_delay %2 "
                          "and max_delay %3.",
-          get_name(),
-          Time::delay_steps_to_ms( kernel().connection_manager.get_min_delay() ),
-          Time::delay_steps_to_ms( kernel().connection_manager.get_max_delay() ) ) );
+                        get_name(),
+                        Time::delay_steps_to_ms(
+                           kernel().connection_manager.get_min_delay() ),
+                        Time::delay_steps_to_ms(
+                           kernel().connection_manager.get_max_delay() ) ) );
     }
     default_delay_needs_check_ = false;
   }
-}
-
-template < typename ConnectionT >
-size_t
-GenericConnectorModel< ConnectionT >::get_syn_id() const
-{
-  return default_connection_.get_syn_id();
 }
 
 template < typename ConnectionT >
@@ -229,9 +191,10 @@ GenericConnectorModel< ConnectionT >::add_connection( Node& src,
 {
   if ( not numerics::is_nan( delay ) )
   {
-    if ( has_property( ConnectionModelProperties::HAS_DELAY ) )
+    if ( has_delay_ )
     {
-      kernel().connection_manager.get_delay_checker().assert_valid_delay_ms( delay );
+      kernel().connection_manager.get_delay_checker().assert_valid_delay_ms(
+        delay );
     }
 
     if ( p->known( names::delay ) )
@@ -248,9 +211,10 @@ GenericConnectorModel< ConnectionT >::add_connection( Node& src,
 
     if ( updateValue< double >( p, names::delay, delay ) )
     {
-      if ( has_property( ConnectionModelProperties::HAS_DELAY ) )
+      if ( has_delay_ )
       {
-        kernel().connection_manager.get_delay_checker().assert_valid_delay_ms( delay );
+        kernel().connection_manager.get_delay_checker().assert_valid_delay_ms(
+          delay );
       }
     }
     else
@@ -282,14 +246,19 @@ GenericConnectorModel< ConnectionT >::add_connection( Node& src,
   // We must use a local variable here to hold the actual value of the
   // receptor type. We must not change the receptor_type_ data member, because
   // that represents the *default* value. See #921.
-  size_t actual_receptor_type = receptor_type_;
+  rport actual_receptor_type = receptor_type_;
 #ifdef HAVE_MUSIC
   // We allow music_channel as alias for receptor_type during connection setup
   updateValue< long >( p, names::music_channel, actual_receptor_type );
 #endif
   updateValue< long >( p, names::receptor_type, actual_receptor_type );
 
-  add_connection_( src, tgt, thread_local_connectors, syn_id, connection, actual_receptor_type );
+  add_connection_( src,
+    tgt,
+    thread_local_connectors,
+    syn_id,
+    connection,
+    actual_receptor_type );
 }
 
 
@@ -300,11 +269,11 @@ GenericConnectorModel< ConnectionT >::add_connection_( Node& src,
   std::vector< ConnectorBase* >& thread_local_connectors,
   const synindex syn_id,
   ConnectionT& connection,
-  const size_t receptor_type )
+  const rport receptor_type )
 {
   assert( syn_id != invalid_synindex );
 
-  if ( not thread_local_connectors[ syn_id ] )
+  if ( thread_local_connectors[ syn_id ] == NULL )
   {
     // No homogeneous Connector with this syn_id exists, we need to create a new
     // homogeneous Connector.
@@ -313,12 +282,38 @@ GenericConnectorModel< ConnectionT >::add_connection_( Node& src,
 
   ConnectorBase* connector = thread_local_connectors[ syn_id ];
   // The following line will throw an exception, if it does not work.
-  connection.check_connection( src, tgt, receptor_type, get_common_properties() );
+  connection.check_connection(
+    src, tgt, receptor_type, get_common_properties() );
 
-  assert( connector );
+  assert( connector != 0 );
 
-  Connector< ConnectionT >* vc = static_cast< Connector< ConnectionT >* >( connector );
-  vc->push_back( std::move( connection ) );
+  // TODO: simplify: push_back should not return anything
+  Connector< ConnectionT >* vc =
+    static_cast< Connector< ConnectionT >* >( connector );
+  connector = &vc->push_back( connection );
+
+  thread_local_connectors[ syn_id ] = connector;
+}
+
+template < typename ConnectionT >
+void
+GenericConnectorModel< ConnectionT >::reserve_connections(
+  std::vector< ConnectorBase* >& thread_local_connectors,
+  const synindex syn_id,
+  const size_t count )
+{
+  assert( syn_id != invalid_synindex );
+
+  if ( thread_local_connectors[ syn_id ] == NULL )
+  {
+    // No homogeneous Connector with this syn_id exists, we need to create a new
+    // homogeneous Connector.
+    thread_local_connectors[ syn_id ] = new Connector< ConnectionT >( syn_id );
+  }
+
+  ConnectorBase& connector = *thread_local_connectors[ syn_id ];
+
+  connector.reserve( connector.size() + count );
 }
 
 } // namespace nest

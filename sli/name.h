@@ -72,34 +72,33 @@ public:
     : handle_( insert( s ) )
   {
   }
-
-  Name( const Name& n ) = default;
-  Name& operator=( const Name& n ) = default;
+  Name( const Name& n )
+    : handle_( n.handle_ )
+  {
+  }
 
   /**
    * Return string represented by Name.
    */
-  const std::string& toString() const;
+  const std::string& toString( void ) const;
 
   /**
    * Return table index for Name object.
    */
   handle_t
-  toIndex() const
+  toIndex( void ) const
   {
     return handle_;
   }
 
-  bool
-  operator==( const Name& n ) const
+  bool operator==( const Name& n ) const
   {
     return handle_ == n.handle_;
   }
 
-  bool
-  operator!=( const Name& n ) const
+  bool operator!=( const Name& n ) const
   {
-    return handle_ != n.handle_;
+    return not( handle_ == n.handle_ );
   }
 
   /**
@@ -108,8 +107,7 @@ public:
    * on string comparison would be very slow. We thus compare based on
    * table indices.
    */
-  bool
-  operator<( const Name& n ) const
+  bool operator<( const Name& n ) const
   {
     return handle_ < n.handle_;
   }

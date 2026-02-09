@@ -33,7 +33,7 @@
 #include "genericdatum.h"
 
 
-// Prefixed all references to members of GenericDatum with this->,
+// prefixed all references to members of GenericDatum with this->,
 // since HP's aCC otherwise complains about them not being declared
 // according to ISO Standard Sec. 14.6.2(3) [temp.dep]
 // HEP, 2001-08-08
@@ -47,7 +47,7 @@ protected:
 
 private:
   Datum*
-  clone() const
+  clone( void ) const
   {
     return new NumericDatum< D, slt >( *this );
   }
@@ -75,20 +75,11 @@ public:
     return d;
   }
 
-  void
-  input_form( std::ostream& o ) const
-  {
-    pprint( o );
-  }
+  void input_form( std::ostream& ) const;
+  void pprint( std::ostream& ) const;
 
-  void
-  pprint( std::ostream& o ) const
-  {
-    this->print( o );
-  }
 
-  static void*
-  operator new( size_t size )
+  static void* operator new( size_t size )
   {
     if ( size != memory.size_of() )
     {
@@ -97,10 +88,9 @@ public:
     return memory.alloc();
   }
 
-  static void
-  operator delete( void* p, size_t size )
+  static void operator delete( void* p, size_t size )
   {
-    if ( not p )
+    if ( p == NULL )
     {
       return;
     }

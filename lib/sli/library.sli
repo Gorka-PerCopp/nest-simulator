@@ -22,15 +22,15 @@
 
 systemdict begin
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: namespace - Open a namespace
 
 Synopsis:
 /name namespace ...your.code... end -> -
 
-Description:
+Description: 
 "namespace" provides to SLI the concept of namespaces,
-  as known from C++.
+  as known from C++. 
 
 The command changes the current scope to the namespace of the given
   name, i.e.,
@@ -99,20 +99,20 @@ SeeAlso: call, using, endusing
       {
         pop
         M_ERROR (namespace) (Object is not a dictionary.) message
-        /namespace /TypeMismatchError raiseerror
-      } if
+        /namespace /TypeMismatchError raiseerror          
+      } if        
       begin
         pop
     }
         {%stack: /name
           << >> dup rolld Set
           begin
-        } ifelse
+        } ifelse        
   } bind def
 
+  
 
-
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: using - Make symbols of a namespace or dictionary available in the current scope.
 
 Synopsis:
@@ -147,12 +147,22 @@ The 'using' statement must be closed by 'endusing'.
 
 Parameters:
  /name          - name of the the namespace to use
- <<dictionary>> - dictionary to use
+ <<dictionary>> - dictionary to use         
 
 Examples:
  % the following makes the routines of the unittest library available to the current scope:
  (unittest) run
  /unittest using
+   ..your code..
+ endusing
+
+ % the following makes the models in modeldict available to the current scope:
+ modeldict using
+   ..your code..
+ endusing
+
+ % alternatively, you can also use the literal name:
+ /modeldict using
    ..your code..
  endusing
 
@@ -183,17 +193,17 @@ SeeAlso: endusing, namespace, call
 {
   %stack: dict
   currentdict
-  exch begin begin
+  exch begin begin       
 } bind def
 
 /using[/literaltype]
 {
   %stack: /name
-  dup
+  dup  
   lookup not
-  {
+  { 
     M_ERROR (using) (A namespace or dictionary of the given name is not known.) message
-    /using /UndefinedNameError raiseerror
+    /using /UndefinedNameError raiseerror          
   } if
 
   %stack: /name dict
@@ -201,20 +211,20 @@ SeeAlso: endusing, namespace, call
   {
     pop
     M_ERROR (using) (Object is not a namespace or dictionary.) message
-    /using /TypeMismatchError raiseerror
-  } if
-
+    /using /TypeMismatchError raiseerror          
+  } if        
+  
   %stack: /name dict
   exch pop
-
+  
   %stack: dict
-  % call the dictionary variant
+  % call the dictionary variant  
   using
-} bind def
+} bind def  
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: endusing - Close the scope of a 'using' context.
 
 Synopsis: /namespacename using ...your.code... endusing -> -
@@ -260,7 +270,7 @@ SeeAlso: using, namespace, call
 % ========= Implementation of :: begins here =========
 %           (sorry, this is a length piece of code)
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: :: - execute a symbol from a nested namespace
 
 Synopsis: A/name ::       -> executes A::name (symbol "name" from namespace "A")
@@ -344,26 +354,26 @@ SeeAlso: namespace, call
 {
   % all members of the array must be literals
 
-  /result true def
+  /result true def  
 
   /ns A def % current namespace
-
-  % first check the namspaces:
-  symbols Most % all but last symbol (the namespaces)
+  
+  % first check the namspaces:  
+  symbols Most % all but last symbol (the namespaces)  
   {
     1 add /depth Set
-    /nextnslit Set
-
+    /nextnslit Set 
+        
     % check if /nextnslit is a member of ns and if ot refers to a dictionary:
-    % The following test yields true if symbol is known and a dictionary, false, else.
+    % The following test yields true if symbol is known and a dictionary, false, else.    
     ns nextnslit known
     {
       ns nextnslit get  type /dictionarytype  eq
     }
     {
-      false
-    } ifelse
-
+      false      
+    } ifelse  
+   
     not { % symbol is either unknown or not a dictionary
       M_ERROR (Nested symbol lookup (::))
       (At depth )
@@ -371,7 +381,7 @@ SeeAlso: namespace, call
       (: /) join
       nextnslit cvs join
       ( is not a nested namespace.) join
-      message
+      message      
 
       % set result to false and exit the forall loop:
       /result false def
@@ -380,14 +390,14 @@ SeeAlso: namespace, call
 
     % okay, iterate:
     /ns  ns nextnslit get  def
-  } forallindexed
+  } forallindexed  
 
-  % continue only if result is still true:
+  % continue only if result is still true:  
   result {
     % now check the last symbol:
     ns  symbols Last  known  not
     { % symbol is not known
-      M_ERROR (Nested symbol lookup (::))
+      M_ERROR (Nested symbol lookup (::)) 
       (At depth )
       depth 1 add cvs join
       (: /) join
@@ -430,7 +440,7 @@ SeeAlso: namespace, call
 %           <<A>>           /B           /C
 {
   3 -2 roll
-  % /C <<A>> /B
+  % /C <<A>> /B  
   1 index begin %open namespace A
     % /C <<A>> /B
     get % get /B from <<A>>
@@ -452,7 +462,7 @@ SeeAlso: namespace, call
     % /C /D <<B>>
     rollu
     % <<B>> /C /D
-    ::depth2_ %recurse
+    ::depth2_ %recurse   
   end %close namespace A
 } bind def
 
@@ -467,7 +477,7 @@ SeeAlso: namespace, call
     % /C /D /E <<B>>
     4 1 roll
     % <<B>> /C /D /E
-    ::depth3_ %recurse
+    ::depth3_ %recurse   
   end %close namespace A
 } bind def
 
@@ -488,7 +498,7 @@ SeeAlso: namespace, call
 
 
 
-/** @BeginDocumentation
+/* BeginDocumentation
 Name: initialize_module - Initialize module by executing commandstring
 
 Synopsis:
@@ -505,7 +515,7 @@ Executes the command string provided by a module to initialize it.
 		  { initializer
 		    M_DEBUG (sli-init) (Executing module initializer: ) 3 index join message
 		    cvx exec } stopped
-		  {
+		  { 
 		    M_FATAL (sli-init) (While executing module initializer: {) initializer join (}) join message
 		    handleerror
 		    start
@@ -514,3 +524,4 @@ Executes the command string provided by a module to initialize it.
 		} bind def
 
 end % systemdict
+

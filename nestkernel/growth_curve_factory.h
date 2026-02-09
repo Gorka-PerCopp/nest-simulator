@@ -59,7 +59,7 @@ class GrowthCurveFactory : public GenericGrowthCurveFactory
 
 public:
   GrowthCurve*
-  create() const override
+  create() const
   {
     return new GrowthCurveType();
   }

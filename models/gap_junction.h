@@ -20,6 +20,48 @@
  *
  */
 
+
+/* BeginDocumentation
+Name: gap_junction - Synapse type for gap-junction connections.
+
+Description:
+ gap_junction is a connector to create gap junctions between pairs
+ of neurons. Gap junctions are bidirectional connections.
+ In order to create one accurate gap-junction connection between
+ neurons i and j two NEST connections are required: For each created
+ connection a second connection with the exact same parameters in
+ the opposite direction is required. NEST provides the possibility
+ to create both connections with a single call to Connect via
+ the make_symmetric flag:
+
+ i j << /rule /one_to_one /make_symmetric true >> /gap_junction Connect
+
+ The value of the parameter "delay" is ignored for connections of
+ type gap_junction.
+
+Transmits: GapJunctionEvent
+
+References:
+
+ Hahne, J., Helias, M., Kunkel, S., Igarashi, J.,
+ Bolten, M., Frommer, A. and Diesmann, M.,
+ A unified framework for spiking and gap-junction interactions
+ in distributed neuronal network simulations,
+ Front. Neuroinform. 9:22. (2015),
+ doi: 10.3389/fninf.2015.00022
+
+ Mancilla, J. G., Lewis, T. J., Pinto, D. J.,
+ Rinzel, J., and Connors, B. W.,
+ Synchronization of electrically coupled pairs
+ of inhibitory interneurons in neocortex,
+ J. Neurosci. 27, 2058-2073 (2007),
+ doi: 10.1523/JNEUROSCI.2715-06.2007
+
+Author: Jan Hahne, Moritz Helias, Susanne Kunkel
+SeeAlso: synapsedict, hh_psc_alpha_gap
+*/
+
+
 #ifndef GAP_JUNCTION_H
 #define GAP_JUNCTION_H
 
@@ -27,85 +69,29 @@
 
 namespace nest
 {
-
-/* BeginUserDocs: synapse, gap junction
-
-Short description
-+++++++++++++++++
-
-Synapse type for gap-junction connections
-
-Description
-+++++++++++
-
-``gap_junction`` is a connector to create gap junctions between pairs of
-neurons. Gap junctions are bidirectional connections.  In order to
-create one accurate gap-junction connection between neurons i and j
-two NEST connections are required: For each created connection a
-second connection with the exact same parameters in the opposite
-direction is required. NEST provides the possibility to create both
-connections with a single call to Connect via the make_symmetric flag.
-
-The value of the parameter ``delay`` is ignored for connections of
-type ``gap_junction``.
-
-See also [1]_, [2]_.
-
-Sends
-+++++
-
-GapJunctionEvent
-
-References
-++++++++++
-
-.. [1] Hahne J, Helias M, Kunkel S, Igarashi J, Bolten M, Frommer A, Diesmann,
-       M (2015). A unified framework for spiking and gap-junction interactions
-       in distributed neuronal network simulations. Frontiers in
-       Neuroinformatics 9:22. DOI: https://doi.org/10.3389/fninf.2015.00022
-
-.. [2] Mancilla JG, Lewis,TJ, Pinto DJ, Rinzel J, Connors BW (2007).
-       Synchronization of electrically coupled pairs of inhibitory
-       interneurons in neocortex. Journal of Neuroscience 27:2058-2073.
-       DOI: https://doi.org/10.1523/JNEUROSCI.2715-06.2007
-
-See also
-++++++++
-
-hh_psc_alpha_gap
-
-Examples using this model
-+++++++++++++++++++++++++
-
-.. listexamples:: gap_junction
-
-EndUserDocs */
-
-void register_gap_junction( const std::string& name );
-
+/**
+ * Class representing a gap-junction connection. A gap-junction connection
+ * has the properties weight, delay and receiver port.
+ */
 template < typename targetidentifierT >
-class gap_junction : public Connection< targetidentifierT >
+class GapJunction : public Connection< targetidentifierT >
 {
 
 public:
   // this line determines which common properties to use
   typedef CommonSynapseProperties CommonPropertiesType;
   typedef Connection< targetidentifierT > ConnectionBase;
-
-  static constexpr ConnectionModelProperties properties =
-    ConnectionModelProperties::REQUIRES_SYMMETRIC | ConnectionModelProperties::SUPPORTS_WFR;
+  typedef GapJunctionEvent EventType;
 
   /**
    * Default Constructor.
    * Sets default values for all parameters. Needed by GenericConnectorModel.
    */
-  gap_junction()
+  GapJunction()
     : ConnectionBase()
     , weight_( 1.0 )
   {
   }
-
-  std::unique_ptr< SecondaryEvent > get_secondary_event();
 
   // Explicitly declare all methods inherited from the dependent base
   // ConnectionBase. This avoids explicit name prefixes in all places these
@@ -116,13 +102,17 @@ public:
   using ConnectionBase::get_target;
 
   void
-  check_connection( Node& s, Node& t, size_t receptor_type, const CommonPropertiesType& )
+  check_connection( Node& s,
+    Node& t,
+    rport receptor_type,
+    const CommonPropertiesType& )
   {
-    GapJunctionEvent ge;
+    EventType ge;
 
     s.sends_secondary_event( ge );
     ge.set_sender( s );
-    Connection< targetidentifierT >::target_.set_rport( t.handles_test_event( ge, receptor_type ) );
+    Connection< targetidentifierT >::target_.set_rport(
+      t.handles_test_event( ge, receptor_type ) );
     Connection< targetidentifierT >::target_.set_target( &t );
   }
 
@@ -131,14 +121,13 @@ public:
    * \param e The event to send
    * \param p The port under which this connection is stored in the Connector.
    */
-  bool
-  send( Event& e, size_t t, const CommonSynapseProperties& )
+  void
+  send( Event& e, thread t, const CommonSynapseProperties& )
   {
     e.set_weight( weight_ );
     e.set_receiver( *get_target( t ) );
     e.set_rport( get_rport() );
     e();
-    return true;
   }
 
   void get_status( DictionaryDatum& d ) const;
@@ -162,11 +151,8 @@ private:
 };
 
 template < typename targetidentifierT >
-constexpr ConnectionModelProperties gap_junction< targetidentifierT >::properties;
-
-template < typename targetidentifierT >
 void
-gap_junction< targetidentifierT >::get_status( DictionaryDatum& d ) const
+GapJunction< targetidentifierT >::get_status( DictionaryDatum& d ) const
 {
   // We have to include the delay here to prevent
   // errors due to internal calls of
@@ -177,15 +163,9 @@ gap_junction< targetidentifierT >::get_status( DictionaryDatum& d ) const
 }
 
 template < typename targetidentifierT >
-std::unique_ptr< SecondaryEvent >
-gap_junction< targetidentifierT >::get_secondary_event()
-{
-  return std::make_unique< GapJunctionEvent >();
-}
-
-template < typename targetidentifierT >
 void
-gap_junction< targetidentifierT >::set_status( const DictionaryDatum& d, ConnectorModel& cm )
+GapJunction< targetidentifierT >::set_status( const DictionaryDatum& d,
+  ConnectorModel& cm )
 {
   // If the delay is set, we throw a BadProperty
   if ( d->known( names::delay ) )

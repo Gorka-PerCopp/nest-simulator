@@ -23,34 +23,10 @@
 Functions to get information on NEST.
 """
 
+from .hl_api_helper import *
+import sys
 import os
-import textwrap
 import webbrowser
-
-import nest
-
-from ..ll_api import check_stack, sli_func, spp, sps, sr
-from .hl_api_helper import (
-    broadcast,
-    is_iterable,
-    is_literal,
-    load_help,
-    show_help_with_pager,
-)
-from .hl_api_types import to_json
-
-__all__ = [
-    "authors",
-    "get_argv",
-    "GetStatus",
-    "get_verbosity",
-    "help",
-    "helpdesk",
-    "message",
-    "SetStatus",
-    "set_verbosity",
-    "sysinfo",
-]
 
 
 @check_stack
@@ -58,6 +34,20 @@ def sysinfo():
     """Print information on the platform on which NEST was compiled."""
 
     sr("sysinfo")
+
+
+@check_stack
+def version():
+    """Return the NEST version.
+
+    Returns
+    -------
+    str:
+        The version of NEST.
+    """
+
+    sr("statusdict [[ /kernelname /version ]] get")
+    return " ".join(spp())
 
 
 @check_stack
@@ -69,93 +59,96 @@ def authors():
 
 @check_stack
 def helpdesk():
-    """Open the NEST documentation index in a browser.
+    """Open the NEST helpdesk in browser.
 
-    This command opens the NEST documentation index page using the
-    system's default browser.
-
-    Please note that the help pages will only be available if you ran
-    ``make html`` prior to installing NEST. For more details, see
-    :ref:`doc_workflow`.
-
+    Use the system default browser.
     """
+    if sys.version_info < (2, 7, 8):
+        print("The NEST Helpdesk is only available with Python 2.7.8 or "
+              "later. \n")
+        return
 
-    docdir = sli_func("statusdict/prgdocdir ::")
-    help_fname = os.path.join(docdir, "html", "index.html")
+    if 'NEST_DOC_DIR' not in os.environ:
+        print(
+            'NEST help needs to know where NEST is installed.'
+            'Please source nest_vars.sh or define NEST_DOC_DIR manually.')
+        return
 
-    if not os.path.isfile(help_fname):
-        msg = "Sorry, the help index cannot be opened. "
-        msg += "Did you run 'make html' before running 'make install'?"
-        raise FileNotFoundError(msg)
+    helpfile = os.path.join(os.environ['NEST_DOC_DIR'], 'help',
+                            'helpindex.html')
 
-    webbrowser.open_new(f"file://{help_fname}")
+    # Under Windows systems webbrowser.open is incomplete
+    # See <https://bugs.python.org/issue8232>
+    if sys.platform[:3] == "win":
+        os.startfile(helpfile)
+
+    # Under MacOs we need to ask for the browser explicitly.
+    # See <https://bugs.python.org/issue30392>.
+    if sys.platform[:3] == "dar":
+        webbrowser.get('safari').open_new(helpfile)
+    else:
+        webbrowser.open_new(helpfile)
 
 
 @check_stack
-def help(obj=None, return_text=False):
-    """Display the help page for the given object in a pager.
+def help(obj=None, pager=None, return_text=False):
+    """Show the help page for the given object using the given pager.
 
-    If ``return_text`` is omitted or explicitly given as ``False``,
-    this command opens the help text for ``object`` in the default
-    pager using the ``pydoc`` module.
-
-    If ``return_text`` is ``True``, the help text is returned as a
-    string in reStructuredText format instead of displaying it.
+    The default pager is more.
 
     Parameters
     ----------
     obj : object, optional
         Object to display help for
+    pager : str, optional
+        Pager to use
     return_text : bool, optional
         Option for returning the help text
-
-    Returns
-    -------
-    None or str
-        The help text of the object if `return_text` is `True`.
-
     """
+    hlpobj = obj
+    if hlpobj is not None:
+        if return_text:
+            return load_help(hlpobj)
+        else:
+            show_help_with_pager(hlpobj, pager)
 
-    if obj is not None:
-        try:
-            if return_text:
-                return load_help(obj)
-            else:
-                show_help_with_pager(obj)
-        except FileNotFoundError:
-            print(
-                textwrap.dedent(
-                    f"""
-                Sorry, there is no help for model '{obj}'.
-                Use the Python help() function to obtain help on PyNEST functions."""
-                )
-            )
     else:
-        print(nest.__doc__)
+        print("Type 'nest.helpdesk()' to access the online documentation "
+              "in a browser.")
+        print("Type 'nest.help(object)' to get help on a NEST object or "
+              "command.\n")
+        print("Type 'nest.Models()' to see a list of available models "
+              "in NEST.")
+        print("Type 'nest.authors()' for information about the makers "
+              "of NEST.")
+        print("Type 'nest.sysinfo()' to see details on the system "
+              "configuration.")
+        print("Type 'nest.version()' for information about the NEST "
+              "version.\n")
+        print("For more information visit http://www.nest-simulator.org.")
 
 
 @check_stack
 def get_argv():
     """Return argv as seen by NEST.
 
-    This is similar to Python :code:`sys.argv` but might have changed after
+    This is similar to Python sys.argv but might have changed after
     MPI initialization.
 
     Returns
     -------
-    tuple
-        Argv, as seen by NEST
-
+    tuple:
+        Argv, as seen by NEST.
     """
 
-    sr("statusdict")
+    sr('statusdict')
     statusdict = spp()
-    return statusdict["argv"]
+    return statusdict['argv']
 
 
 @check_stack
 def message(level, sender, text):
-    """Print a message using message system of NEST.
+    """Print a message using NEST's message system.
 
     Parameters
     ----------
@@ -165,284 +158,127 @@ def message(level, sender, text):
         Message sender
     text : str
         Text to be sent in the message
-
     """
 
     sps(level)
     sps(sender)
     sps(text)
-    sr("message")
-
-
-@check_stack
-def get_verbosity():
-    """Return verbosity level of NEST's messages.
-
-    - M_ALL=0,  display all messages
-    - M_INFO=10, display information messages and above
-    - M_DEPRECATED=18, display deprecation warnings and above
-    - M_WARNING=20, display warning messages and above
-    - M_ERROR=30, display error messages and above
-    - M_FATAL=40, display failure messages and above
-
-    Returns
-    -------
-    int:
-        The current verbosity level
-    """
-
-    sr("verbosity")
-    return spp()
-
-
-@check_stack
-def set_verbosity(level):
-    """Change verbosity level for NEST's messages.
-
-    - M_ALL=0,  display all messages
-    - M_INFO=10, display information messages and above
-    - M_DEPRECATED=18, display deprecation warnings and above
-    - M_WARNING=20, display warning messages and above
-    - M_ERROR=30, display error messages and above
-    - M_FATAL=40, display failure messages and above
-
-    .. note::
-
-       To suppress the usual output when NEST starts up (e.g., the welcome message and
-       version information), you can run ``export PYNEST_QUIET=1`` on the command
-       line before executing your simulation script.
-
-    Parameters
-    ----------
-    level : str, default: 'M_INFO'
-        Can be one of 'M_FATAL', 'M_ERROR', 'M_WARNING', 'M_DEPRECATED',
-        'M_INFO' or 'M_ALL'.
-    """
-
-    sr("{} setverbosity".format(level))
+    sr('message')
 
 
 @check_stack
 def SetStatus(nodes, params, val=None):
-    """Set parameters of nodes or connections.
+    """Set the parameters of nodes or connections to params.
 
-    Parameters of nodes or connections, given in `nodes`, is set as specified
-    by `params`. If `val` is given, `params` has to be a `string` with the
-    name of an attribute, which is set to `val` on the nodes/connections. `val`
+    If val is given, params has to be the name
+    of an attribute, which is set to val on the nodes/connections. val
     can be a single value or a list of the same size as nodes.
 
     Parameters
     ----------
-    nodes : NodeCollection or SynapseCollection
-        Either a `NodeCollection` representing nodes, or a `SynapseCollection`
-        of connection handles as returned by
-        :py:func:`.GetConnections()`.
+    nodes : list or tuple
+        Either a list of global ids of nodes, or a tuple of connection
+        handles as returned by GetConnections()
     params : str or dict or list
-        Dictionary of parameters (either lists or single values) or list of dictionaries of parameters
-        of same length as `nodes`. If `val` is given, this has to be a string giving
-        the name of a model property.
-    val : int, list, optional
+        Dictionary of parameters or list of dictionaries of parameters of
+        same length as nodes. If val is given, this has to be the name of
+        a model property as a str.
+    val : str, optional
         If given, params has to be the name of a model property.
 
     Raises
     ------
     TypeError
-        If `nodes` is not a NodeCollection of nodes, a SynapseCollection of synapses, or if the
-        number of parameters don't match the number of nodes or
-        synapses.
-
-    See Also
-    -------
-    :py:func:`GetStatus`,
-    :py:meth:`NodeCollection.get()<nest.lib.hl_api_types.NodeCollection.get>`,
-    :py:meth:`NodeCollection.set()<nest.lib.hl_api_types.NodeCollection.set>`
-
+        Description
     """
 
-    if not isinstance(nodes, (nest.NodeCollection, nest.SynapseCollection)):
-        raise TypeError("'nodes' must be NodeCollection or a SynapseCollection.")
+    if not is_coercible_to_sli_array(nodes):
+        raise TypeError("nodes must be a list of nodes or synapses")
 
     # This was added to ensure that the function is a nop (instead of,
-    # for instance, raising an exception) when applied to an empty
-    # list, which is an artifact of the API operating on lists, rather
-    # than relying on language idioms, such as comprehensions
+    # for instance, raising an exception) when applied to an empty list,
+    # which is an artifact of the API operating on lists, rather than
+    # relying on language idioms, such as comprehensions
+    #
     if len(nodes) == 0:
         return
 
-    params_is_dict = isinstance(params, dict)
-    set_status_nodes = isinstance(nodes, nest.NodeCollection)
-    if set_status_nodes:
-        local_nodes = [nodes.local] if len(nodes) == 1 else nodes.local
-        set_status_nodes = set_status_nodes and all(local_nodes)
-
-    if params_is_dict and set_status_nodes:
-        node_params = nodes[0].get()
-        contains_list = [
-            is_iterable(vals) and key in node_params and not is_iterable(node_params[key])
-            for key, vals in params.items()
-        ]
-
-        if any(contains_list):
-            temp_param = [{} for _ in range(len(nodes))]
-
-            for key, vals in params.items():
-                if not is_iterable(vals):
-                    for temp_dict in temp_param:
-                        temp_dict[key] = vals
-                else:
-                    for i, temp_dict in enumerate(temp_param):
-                        temp_dict[key] = vals[i]
-            params = temp_param
-
     if val is not None and is_literal(params):
-        if is_iterable(val) and not isinstance(val, (str, dict)):
+        if is_iterable(val) and not isinstance(val, (uni_str, dict)):
             params = [{params: x} for x in val]
         else:
             params = {params: val}
 
-    if isinstance(params, (list, tuple)) and len(nodes) != len(params):
-        raise TypeError("status dict must be a dict, or a list of dicts of length {}".format(len(nodes)))
+    params = broadcast(params, len(nodes), (dict,), "params")
+    if len(nodes) != len(params):
+        raise TypeError(
+            "status dict must be a dict, or list of dicts of length 1 "
+            "or len(nodes)")
 
-    if isinstance(nodes, nest.SynapseCollection):
-        params = broadcast(params, len(nodes), (dict,), "params")
-
-        sps(nodes)
-        sps(params)
-
-        sr("2 arraystore")
-        sr("Transpose { arrayload pop SetStatus } forall")
+    if is_sequence_of_connections(nodes):
+        pcd(nodes)
     else:
-        sli_func("SetStatus", nodes, params)
+        sps(nodes)
+
+    sps(params)
+    sr('2 arraystore')
+    sr('Transpose { arrayload pop SetStatus } forall')
 
 
 @check_stack
-def GetStatus(nodes, keys=None, output=""):
+def GetStatus(nodes, keys=None):
     """Return the parameter dictionaries of nodes or connections.
 
-    If `keys` is given, a list of values is returned instead. `keys` may
-    also be a list, in which case the returned list contains lists of
-    values.
+    If keys is given, a list of values is returned instead. keys may also be a
+    list, in which case the returned list contains lists of values.
 
     Parameters
     ----------
-    nodes : NodeCollection or SynapseCollection
-        Either a `NodeCollection` representing nodes, or a `SynapseCollection` of
-        connection handles as returned by :py:func:`.GetConnections()`.
+    nodes : list or tuple
+        Either a list of global ids of nodes, or a tuple of connection
+        handles as returned by GetConnections()
     keys : str or list, optional
-        string or a list of strings naming model properties.
-        `GetStatus` then returns a single value or a list of values
-        belonging to the keys given.
-    output : str, optional
-        Whether the returned data should be in a selected format
-        (``output='json'``).
+        String or a list of strings naming model properties. GetDefaults then
+        returns a single value or a list of values belonging to the keys
+        given.
 
     Returns
     -------
-    list of dicts :
-        All parameters in a dict for each node or connection.
-    list of values :
-        If `keys` is a string, the value of the corresponding parameter for each node or connection is returned.
-    list of lists of values :
-        If `keys` is a list of strings, a list of values of the corresponding parameters for each node or connection
-        is returned.
-    str :
-        If `output` is `json`, the above formats are converted to JSON format before they are returned.
+    dict:
+        All parameters
+    type:
+        If keys is a string, the corrsponding default parameter is returned
+    list:
+        If keys is a list of strings, a list of corrsponding default parameters
+        is returned
 
     Raises
     ------
     TypeError
-        If `nodes` or `keys` are on the wrong form.
-
-    See Also
-    --------
-    :py:func:`SetStatus`,
-    :py:meth:`NodeCollection.set()<nest.lib.hl_api_types.NodeCollection.set>`,
-    :py:meth:`NodeCollection.get()<nest.lib.hl_api_types.NodeCollection.get>`
-
-    Examples
-    --------
-    *For nodes:*
-
-    >>>    nest.GetStatus(nodes)
-           ({'archiver_length': 0,
-             'beta_Ca': 0.001,
-             ...
-             'global_id': 1,
-             ...
-             'vp': 0},
-            ...
-            {'archiver_length': 0,
-             'beta_Ca': 0.001,
-             ...
-             'global_id': 3,
-             ...
-             'vp': 0})
-
-    >>>    nest.GetStatus(nodes, 'V_m')
-           (-70.0, -70.0, -70.0)
-
-    >>>    nest.GetStatus(nodes, ['V_m', 'C_m'])
-           ((-70.0, 250.0), (-70.0, 250.0), (-70.0, 250.0))
-
-    >>>    nest.GetStatus(nodes, ['V_m', 'C_m'], output='json')
-           '[[-70.0, 250.0], [-70.0, 250.0], [-70.0, 250.0]]'
-
-    *For connections:*
-
-    >>>    nest.GetStatus(conns)
-           ({'delay': 1.0,
-             ...
-             'source': 1,
-             ...
-             'weight': 1.0},
-            ...
-            {'delay': 1.0,
-             ...
-             'source': 3,
-             ...
-             'weight': 1.0})
-
-    >>>    nest.GetStatus(conns, 'weight')
-           (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
-
-    >>>    nest.GetStatus(conns, ['source', 'delay'])
-           ((1, 1.0),
-            ...
-            (3, 1.0))
-
-    >>>    nest.GetStatus(conns, ['source', 'delay'], output='json')
-           '[[1, 1.0], [1, 1.0], [1, 1.0], [2, 1.0], [2, 1.0], [2, 1.0],
-           [3, 1.0], [3, 1.0], [3, 1.0]]'
+        Description
     """
 
-    if not (isinstance(nodes, nest.NodeCollection) or isinstance(nodes, nest.SynapseCollection)):
-        raise TypeError("The first input (nodes) must be NodeCollection or a SynapseCollection with connection handles")
+    if not is_coercible_to_sli_array(nodes):
+        raise TypeError("nodes must be a list of nodes or synapses")
 
     if len(nodes) == 0:
-        return "[]" if output == "json" else ()
+        return nodes
 
     if keys is None:
-        cmd = "GetStatus"
+        cmd = '{ GetStatus } Map'
     elif is_literal(keys):
-        cmd = "GetStatus {{ /{0} get }} Map".format(keys)
+        cmd = '{{ GetStatus /{0} get }} Map'.format(keys)
     elif is_iterable(keys):
         keys_str = " ".join("/{0}".format(x) for x in keys)
-        cmd = "GetStatus {{ [ [ {0} ] ] get }} Map".format(keys_str)
+        cmd = '{{ GetStatus }} Map {{ [ [ {0} ] ] get }} Map'.format(keys_str)
     else:
         raise TypeError("keys should be either a string or an iterable")
 
-    sps(nodes)
+    if is_sequence_of_connections(nodes):
+        pcd(nodes)
+    else:
+        sps(nodes)
 
     sr(cmd)
 
-    result = spp()
-
-    if isinstance(result, dict):
-        # We have taken GetStatus on a layer object, or another NodeCollection with metadata, which returns a
-        # dictionary from C++, so we need to turn it into a tuple for consistency.
-        result = (result,)
-
-    if output == "json":
-        result = to_json(result)
-
-    return result
+    return spp()

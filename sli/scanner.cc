@@ -36,6 +36,7 @@
 #include "integerdatum.h"
 #include "namedatum.h"
 #include "stringdatum.h"
+#include "symboldatum.h"
 
 /*************************************************************************/
 /** Scanner   (implemented as a DFA)                                     */
@@ -139,7 +140,7 @@ Scanner::Scanner( std::istream* is )
 
   code.Group( alpha, "ABCDFGHIJKLMNOPQRSTUVWXYZ" );
   code.Group( alpha, "abcdfghijklmopqrsuvwxyz" );
-  code.Range( alpha, static_cast< char >( 161 ), static_cast< char >( 255 ) );
+  code.Range( alpha, ( char ) 161, ( char ) 255 );
   code[ '_' ] = alpha;
   code.Group( alpha, "~`!@#$^&=|:;'<,>?\"" ); // according to PS
 
@@ -524,8 +525,7 @@ Scanner::source( std::istream* in_s )
   }
 }
 
-bool
-Scanner::operator()( Token& t )
+bool Scanner::operator()( Token& t )
 {
   static const int base = 10;
   ScanStates state = start;
@@ -538,16 +538,19 @@ Scanner::operator()( Token& t )
   unsigned char sgc = '\0';
 
   long lng = 0L;
+  double d = 0.0;
   int sg = 1;
   int e = 0;
   int parenth = 0; // to handle PS parenthesis in strings
+  double p = 1.;
+
 
   t.clear();
 
   do
   {
 
-    if ( not in->eof() and not in->good() )
+    if ( not in->eof() && not in->good() )
     {
       std::cout << "I/O Error in scanner input stream." << std::endl;
       state = error;
@@ -558,13 +561,13 @@ Scanner::operator()( Token& t )
     // so we cannot use unsigned char c as argument.  The
     // get() is not picky.  --- HEP 2001-08-09
     //     in->get(c);
-    c = static_cast< unsigned char >( in->get() );
+    c = in->get();
     if ( col++ == 0 )
     {
       ++line;
     }
 
-    if ( c == '\0' or in->bad() )
+    if ( c == '\0' || in->bad() )
     {
       c = endof;
     }
@@ -603,7 +606,7 @@ Scanner::operator()( Token& t )
     {
       IntegerDatum id( lng );
       t = id;
-      if ( c != endoln and c != endof )
+      if ( c != endoln && c != endof )
       {
         in->unget();
         --col;
@@ -620,11 +623,13 @@ Scanner::operator()( Token& t )
       break;
 
     case intexpst:
+      d = ( double ) lng;
       ds.push_back( 'e' );
       state = expntlst;
       break;
 
     case decpointst:
+      d = ( double ) lng;
       ds.push_back( '.' );
       break;
 
@@ -635,8 +640,9 @@ Scanner::operator()( Token& t )
          are separate states. */
       ds.push_back( '.' );
       state = fracdgtst;
-    /* no break */
     case fracdgtst:
+      p /= base;
+      d += sg * p * digval( c );
       ds.push_back( c );
       break;
 
@@ -653,7 +659,7 @@ Scanner::operator()( Token& t )
       ds.clear();
 
       t.move( doubletoken );
-      if ( c != endoln and c != endof )
+      if ( c != endoln && c != endof )
       {
         in->unget();
         --col;
@@ -665,7 +671,6 @@ Scanner::operator()( Token& t )
     case minusst:
       sg = -1;
       ds.push_back( '-' );
-    /* no break */
     case plusst:
       sgc = c;
       break;
@@ -704,10 +709,9 @@ Scanner::operator()( Token& t )
       state = alphast;
       break;
     case sgalphast:
-      assert( sgc == '+' or sgc == '-' );
+      assert( sgc == '+' || sgc == '-' );
       s.append( 1, sgc );
       state = alphast;
-    /* no break */
     case literalst:
     case stringst:
     case alphast:       // let's optimize this at some point
@@ -735,10 +739,9 @@ Scanner::operator()( Token& t )
       break;
     case aheadsgst:
       s.append( 1, sgc );
-    /* no break */
     case aheadalphst:
     {
-      if ( c != endoln and c != endof )
+      if ( c != endoln && c != endof )
       {
         in->unget();
         --col;
@@ -751,7 +754,7 @@ Scanner::operator()( Token& t )
 
     case aheadlitst:
     {
-      if ( c != endoln and c != endof )
+      if ( c != endoln && c != endof )
       {
         in->unget();
         --col;
@@ -803,7 +806,7 @@ Scanner::operator()( Token& t )
     default:
       break;
     }
-  } while ( ( state != error ) and ( state != end ) );
+  } while ( ( state != error ) && ( state != end ) );
   return ( state == end );
 }
 
@@ -812,5 +815,7 @@ Scanner::print_error( const char* msg )
 {
   std::cout << "% parser: At line " << line << " position " << col << ".\n"
             << "% parser: Syntax Error: " << msg << "\n";
-  std::cout << "% parser: Context preceding the error follows:\n" << old_context << std::endl << context << std::endl;
+  std::cout << "% parser: Context preceding the error follows:\n" << old_context
+            << std::endl
+            << context << std::endl;
 }

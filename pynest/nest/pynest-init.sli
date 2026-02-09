@@ -39,9 +39,9 @@ SeeAlso: sli_func_litconv
    /mark rollu
    cvx                        % convert string to SLI procedure
    {arrayload pop} prepend    % code prepare arguments
-   exec
+   exec             
    counttomark                % count number of return values
-   arraystore
+   arraystore 
    exch pop         % remove the mark
  end
 }
@@ -50,7 +50,7 @@ def
 /*
 Name: sli_func_litconv - execute sli code on array of arguments
 Synopsis: [arg1 arg2 ... argN] (function code) sli_func_litconv -> [res1 res2 ...]
-Arguments: If argn is a string and its first char is /, it is
+Arguments: If argn is a string and its first char is /, it is 
 	   converted to a literal before loaded onto the stack.
 Remarks: same as sli_func, but string args beginnig with / are converted to literals
 SeeAlso: sli_func_litconv
@@ -65,9 +65,9 @@ SeeAlso: sli_func_litconv
      { StringQ { dup First 47 eq { Rest cvlit } if } if } Map
      arrayload pop
    } prepend    % code prepare arguments
-   exec
+   exec             
    counttomark                % count number of return values
-   arraystore
+   arraystore 
    exch pop         % remove the mark
  end
 }
@@ -80,7 +80,7 @@ def
   () =
   (              -- N E S T --) =
   (  Copyright (C) 2004 The NEST Initiative) = () =
-  ( Version: ) =only statusdict/version :: =
+  ( Version: ) =only statusdict/rcsinfo :: =
   ( Built: ) =only statusdict/built :: =
   () =
 
@@ -89,7 +89,7 @@ def
   () =
 
   ( Problems or suggestions?) =
-  (   Visit https://www.nest-simulator.org) =
+  (   Visit http://www.nest-simulator.org) =
   () =
 
   ( Type 'nest.help()' to find out more about NEST.) =
@@ -102,9 +102,9 @@ def
 {
   stopped dup
   {
-    errordict /newerror get
+    errordict /newerror get 
     {
-      errordict /message known
+      errordict /message known 
       { (: ) errordict /message get join errordict /message undef}
       { () } ifelse
       errordict /errorname get cvs
@@ -118,3 +118,13 @@ def
   } if
   not % invert the return value of stopped
 } bind def
+
+
+% Check for rcsinfo SLI file and run it. If it does not
+% exist, put an empty string into statusdict/rcsinfo.
+mark
+  { (rcsinfo) (r) file } stopped not
+    { (rcsinfo) run }
+    { statusdict /rcsinfo () put }
+  ifelse
+] ;

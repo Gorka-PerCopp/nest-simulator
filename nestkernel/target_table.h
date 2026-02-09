@@ -39,16 +39,14 @@ namespace nest
 {
 
 /**
- * This data structure stores all targets of the local neurons.
- *
- * This is the presynaptic part of the connection infrastructure.
+ * This data structure stores all targets of the local neurons. This
+ * is the presynaptic part of the connection infrastructure.
  */
 class TargetTable
 {
 private:
   /**
    * Stores targets of local neurons
-   *
    * Three dimensional objects:
    *   - first dim: threads
    *   - second dim: local neurons
@@ -59,14 +57,14 @@ private:
   /**
    * Stores MPI send buffer positions for secondary targets of local
    * neurons.
-   *
    * Four dimensional object:
    *   - first dim: threads
    *   - second dim: local neurons
    *   - third dim: synapse types
-   *   - fourth dim: MPI send buffer positions
+   *   - forth dim: MPI send buffer positions
    */
-  std::vector< std::vector< std::vector< std::vector< size_t > > > > secondary_send_buffer_pos_;
+  std::vector< std::vector< std::vector< std::vector< size_t > > > >
+    secondary_send_buffer_pos_;
 
 public:
   /**
@@ -82,54 +80,60 @@ public:
   /**
    * Adjusts targets_ to number of local nodes.
    */
-  void prepare( const size_t tid );
+  void prepare( const thread tid );
 
   /**
    * Adds entry to targets_.
    */
-  void add_target( const size_t tid, const size_t target_rank, const TargetData& target_data );
+  void add_target( const thread tid,
+    const thread target_rank,
+    const TargetData& target_data );
 
   /**
-   * Returns all targets of a neuron. Used for filling
-   * EventDeliveryManager::emitted_spikes_register_.
+   * Returns all targets of a neuron. Used to fill
+   * EventDeliveryManager::spike_register_.
    */
-  const std::vector< Target >& get_targets( const size_t tid, const size_t lid ) const;
+  const std::vector< Target >& get_targets( const thread tid,
+    const index lid ) const;
 
   /**
-   * Returns all MPI send buffer positions of a neuron.
-   *
-   * Used to fill MPI buffer in EventDeliveryManager.
+   * Returns all MPI send buffer positions of a neuron. Used to fill
+   * MPI buffer in EventDeliveryManager.
    */
-  const std::vector< size_t >&
-  get_secondary_send_buffer_positions( const size_t tid, const size_t lid, const synindex syn_id ) const;
+  const std::vector< size_t >& get_secondary_send_buffer_positions(
+    const thread tid,
+    const index lid,
+    const synindex syn_id ) const;
 
   /**
    * Clears all entries of targets_.
    */
-  void clear( const size_t tid );
+  void clear( const thread tid );
 
   /**
    * Removes identical MPI send buffer positions to avoid writing
    * data multiple times.
    */
-  void compress_secondary_send_buffer_pos( const size_t tid );
+  void compress_secondary_send_buffer_pos( const thread tid );
 };
 
 inline const std::vector< Target >&
-TargetTable::get_targets( const size_t tid, const size_t lid ) const
+TargetTable::get_targets( const thread tid, const index lid ) const
 {
   return targets_[ tid ][ lid ];
 }
 
 inline const std::vector< size_t >&
-TargetTable::get_secondary_send_buffer_positions( const size_t tid, const size_t lid, const synindex syn_id ) const
+TargetTable::get_secondary_send_buffer_positions( const thread tid,
+  const index lid,
+  const synindex syn_id ) const
 {
   assert( syn_id < secondary_send_buffer_pos_[ tid ][ lid ].size() );
   return secondary_send_buffer_pos_[ tid ][ lid ][ syn_id ];
 }
 
 inline void
-TargetTable::clear( const size_t tid )
+TargetTable::clear( const thread tid )
 {
   targets_[ tid ].clear();
   secondary_send_buffer_pos_[ tid ].clear();
@@ -137,4 +141,4 @@ TargetTable::clear( const size_t tid )
 
 } // namespace nest
 
-#endif /* #ifndef TARGET_TABLE_H */
+#endif

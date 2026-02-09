@@ -26,7 +26,6 @@
 // C++ includes:
 #include <algorithm>
 #include <functional>
-#include <limits>
 #include <string>
 
 // Includes from sli:
@@ -85,22 +84,26 @@ getValue( const DictionaryDatum& d, Name const n )
  * @throws RangeCheck if a value is outside the range
  */
 inline double
-get_double_in_range( const DictionaryDatum& d, Name const n, double min, double max, int mode = 2 )
+get_double_in_range( const DictionaryDatum& d,
+  Name const n,
+  double min,
+  double max,
+  int mode = 2 )
 {
   // We must take a reference, so that access information can be stored in the
   // token.
   const Token& t = d->lookup2( n );
   DoubleDatum* dd = dynamic_cast< DoubleDatum* >( t.datum() );
-  double x = std::numeric_limits< double >::quiet_NaN();
+  double x = 0.0;
 
-  if ( dd )
+  if ( dd != 0 )
   {
     x = dd->get();
   }
   else
   {
     IntegerDatum* id = dynamic_cast< IntegerDatum* >( t.datum() );
-    if ( not id )
+    if ( id == 0 )
     {
       throw TypeMismatch();
     }
@@ -149,22 +152,26 @@ get_double_in_range( const DictionaryDatum& d, Name const n, double min, double 
  * @throws RangeCheck if a value is outside the range
  */
 inline long
-get_long_in_range( const DictionaryDatum& d, Name const n, long min, long max, int mode = 2 )
+get_long_in_range( const DictionaryDatum& d,
+  Name const n,
+  long min,
+  long max,
+  int mode = 2 )
 {
   // We must take a reference, so that access information can be stored in the
   // token.
   const Token& t = d->lookup2( n );
   DoubleDatum* dd = dynamic_cast< DoubleDatum* >( t.datum() );
-  long x = std::numeric_limits< long >::min();
+  long x = 0;
 
-  if ( dd )
+  if ( dd != 0 )
   {
     x = dd->get();
   }
   else
   {
     IntegerDatum* id = dynamic_cast< IntegerDatum* >( t.datum() );
-    if ( not id )
+    if ( id == 0 )
     {
       throw TypeMismatch();
     }
@@ -226,7 +233,6 @@ def( DictionaryDatum& d, Name const n, FT const& value )
 
 /** Update a variable from a dictionary entry if it exists, skip call if it
  * doesn't.
- * @note If the dictionary entry is an integer, use updateValue< long >.
  * @ingroup DictUtils
  * @throws see getValue(DictionaryDatum, Name)
  */
@@ -261,7 +267,10 @@ updateValue( DictionaryDatum const& d, Name const n, VT& value )
  */
 template < typename FT, typename VT, class C >
 void
-updateValue2( DictionaryDatum const& d, Name const n, C& obj, void ( C::*setfunc )( VT ) )
+updateValue2( DictionaryDatum const& d,
+  Name const n,
+  C& obj,
+  void ( C::*setfunc )( VT ) )
 {
   if ( d->known( n ) ) // Does name exist in the dictionary?
   {
@@ -269,6 +278,7 @@ updateValue2( DictionaryDatum const& d, Name const n, C& obj, void ( C::*setfunc
     ( obj.*setfunc )( getValue< FT >( d, n ) );
   }
 }
+
 
 /** Create a property of type ArrayDatum in the dictionary, if it does not
  * already exist.
@@ -303,7 +313,7 @@ append_property( DictionaryDatum& d, Name propname, const PropT& prop )
   assert( not t.empty() );
 
   ArrayDatum* arrd = dynamic_cast< ArrayDatum* >( t.datum() );
-  assert( arrd );
+  assert( arrd != 0 );
 
   Token prop_token( prop );
   arrd->push_back_dont_clone( prop_token );
@@ -315,13 +325,15 @@ append_property( DictionaryDatum& d, Name propname, const PropT& prop )
  */
 template <>
 inline void
-append_property< std::vector< double > >( DictionaryDatum& d, Name propname, const std::vector< double >& prop )
+append_property< std::vector< double > >( DictionaryDatum& d,
+  Name propname,
+  const std::vector< double >& prop )
 {
   Token t = d->lookup( propname );
   assert( not t.empty() );
 
   DoubleVectorDatum* arrd = dynamic_cast< DoubleVectorDatum* >( t.datum() );
-  assert( arrd );
+  assert( arrd != 0 );
 
   ( *arrd )->insert( ( *arrd )->end(), prop.begin(), prop.end() );
 }
@@ -333,13 +345,15 @@ append_property< std::vector< double > >( DictionaryDatum& d, Name propname, con
  */
 template <>
 inline void
-append_property< std::vector< long > >( DictionaryDatum& d, Name propname, const std::vector< long >& prop )
+append_property< std::vector< long > >( DictionaryDatum& d,
+  Name propname,
+  const std::vector< long >& prop )
 {
   Token t = d->lookup( propname );
   assert( not t.empty() );
 
   IntVectorDatum* arrd = dynamic_cast< IntVectorDatum* >( t.datum() );
-  assert( arrd );
+  assert( arrd != 0 );
 
   ( *arrd )->insert( ( *arrd )->end(), prop.begin(), prop.end() );
 }
@@ -370,6 +384,7 @@ void provide_property( DictionaryDatum&, Name, const std::vector< long >& );
  * threads when multimeter is running in accumulation mode.
  * @ingroup DictUtils
  */
-void accumulate_property( DictionaryDatum&, Name, const std::vector< double >& );
+void
+accumulate_property( DictionaryDatum&, Name, const std::vector< double >& );
 
 #endif

@@ -35,7 +35,6 @@
 // Includes from sli:
 #include "arraydatum.h"
 #include "name.h"
-#include "namedatum.h"
 
 namespace nest
 {
@@ -75,7 +74,6 @@ public:
 
   /**
    * Create the map.
-   *
    * This function must be specialized for each class owning a
    * Recordables map and must fill the map. This should happen
    * as part of the original constructor for the Node.
@@ -84,7 +82,6 @@ public:
 
   /**
    * Obtain SLI list of all recordables, for use by get_status().
-   *
    * @todo This fct should return the recordables_ entry, but since
    *       filling recordables_ leads to seg fault on exit, we just
    *       build the list every time, even though that beats the
@@ -94,7 +91,8 @@ public:
   get_list() const
   {
     ArrayDatum recordables;
-    for ( typename Base_::const_iterator it = this->begin(); it != this->end(); ++it )
+    for ( typename Base_::const_iterator it = this->begin(); it != this->end();
+          ++it )
     {
       recordables.push_back( new LiteralDatum( it->first ) );
     }
@@ -118,7 +116,6 @@ private:
 
   /**
    * SLI list of names of recordables
-   *
    * @todo Once the segfault-on-exit issue mentioned in the comment on
    * get_list() is resolved, the next code line should be activated again.
    *
@@ -146,10 +143,9 @@ class DataAccessFunctor
 public:
   DataAccessFunctor( HostNode& n, size_t elem )
     : parent_( &n )
-    , elem_( elem ) {};
+    , elem_( elem ){};
 
-  double
-  operator()() const
+  double operator()() const
   {
     return parent_->get_state_element( elem_ );
   };
@@ -170,7 +166,8 @@ public:
  * @ingroup Devices
  */
 template < typename HostNode >
-class DynamicRecordablesMap : public std::map< Name, const DataAccessFunctor< HostNode > >
+class DynamicRecordablesMap
+  : public std::map< Name, const DataAccessFunctor< HostNode > >
 {
   typedef std::map< Name, const DataAccessFunctor< HostNode > > Base_;
 
@@ -184,7 +181,6 @@ public:
 
   /**
    * Create the map.
-   *
    * This function must be specialized for each class instance owning a
    * Recordables map and must fill the map. This should happen
    * as part of the original constructor for the Node.
@@ -193,7 +189,6 @@ public:
 
   /**
    * Obtain SLI list of all recordables, for use by get_status().
-   *
    * @todo This fct should return the recordables_ entry, but since
    *       filling recordables_ leads to seg fault on exit, we just
    *       build the list every time, even though that beats the
@@ -203,7 +198,8 @@ public:
   get_list() const
   {
     ArrayDatum recordables;
-    for ( typename Base_::const_iterator it = this->begin(); it != this->end(); ++it )
+    for ( typename Base_::const_iterator it = this->begin(); it != this->end();
+          ++it )
     {
       recordables.push_back( new LiteralDatum( it->first ) );
     }
@@ -223,7 +219,8 @@ public:
   erase( const Name& n )
   {
     // .toString() required as work-around for #339, remove when #348 is solved.
-    typename DynamicRecordablesMap< HostNode >::iterator it = this->find( n.toString() );
+    typename DynamicRecordablesMap< HostNode >::iterator it =
+      this->find( n.toString() );
     // If the Name is not in the map, throw an error
     if ( it == this->end() )
     {
@@ -236,7 +233,7 @@ public:
 
 template < typename HostNode >
 void
-DynamicRecordablesMap< HostNode >::create( HostNode& )
+DynamicRecordablesMap< HostNode >::create( HostNode& n )
 {
   assert( false );
 }

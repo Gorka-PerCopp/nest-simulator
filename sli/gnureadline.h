@@ -38,26 +38,26 @@ public:
   GNUReadline()
   {
   }
-  ~GNUReadline() override;
+  ~GNUReadline();
 
   const std::string
-  name() const override
+  name( void ) const
   {
     return "GNUReadline";
   }
 
-  void init( SLIInterpreter* ) override;
+  void init( SLIInterpreter* );
 
   class GNUReadlineFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   class GNUAddhistoryFunction : public SLIFunction
   {
   public:
-    void execute( SLIInterpreter* ) const override;
+    void execute( SLIInterpreter* ) const;
   };
 
   GNUReadlineFunction gnureadlinefunction;

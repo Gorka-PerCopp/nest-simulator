@@ -26,177 +26,145 @@
 // C++ includes:
 #include <vector>
 
+// Includes from librandom:
+#include "normal_randomdev.h"
+
 // Includes from nestkernel:
 #include "connection.h"
 #include "device_node.h"
 #include "event.h"
-#include "nest_timeconverter.h"
 #include "nest_types.h"
-#include "random_generators.h"
-#include "stimulation_device.h"
+#include "stimulating_device.h"
 #include "universal_data_logger.h"
 
 namespace nest
 {
 
-/* BeginUserDocs: device, generator
+/* BeginDocumentation
+Name: noise_generator - Device to generate Gaussian white noise current.
+Description:
+This device can be used to inject a Gaussian "white" noise current into a node.
+The current is not really white, but a piecewise constant current with Gaussian
+distributed amplitude. The current changes at intervals of dt. dt must be a
+multiple of the simulation step size, the default is 1.0ms,
+corresponding to a 1kHz cut-off.
+Additionally a second sinusodial modulated term can be added to the standard
+deviation of the noise.
 
-Short description
-+++++++++++++++++
+The current generated is given by
 
-Generate a Gaussian white noise current
+  I(t) = mean + std * N_j  for t_0 + j dt <= t < t_0 + (j-1) dt
 
-Description
-+++++++++++
-
-The `noise_generator` can be used to inject a Gaussian "white" noise current into a node.
-
-The current is not truly white, but a piecewise constant current with a Gaussian distributed
-amplitude with mean :math:`\mu` and standard deviation :math:`\sigma`. The current changes at
-a user-defined interval :math:`\delta` and is given by
-
-.. math::
-
-  I(t) = \mu + N_j \sigma \quad \text{for} \quad t_0 + j \delta < t \leq t_0 + (j+1) \delta \;,
-
-where :math:`N_j` are Gaussian random numbers with unit standard deviation and :math:`t_0` is
+where N_j are Gaussian random numbers with unit standard deviation and t_0 is
 the device onset time.
+If the modulation is added the current is given by
 
-Additionally a sinusodially modulated term can be added to the standard
-deviation of the noise:
+  I(t) = mean + sqrt(std^2 + std_mod^2 * sin(omega * t + phase)) * N_j
+                                            for t_0 + j dt <= t < t_0 + (j-1) dt
 
-.. math::
+For a detailed discussion of the properties of the noise generator, please see
+the noise_generator.ipynb notebook included in the NEST source code
+(docs/model_details).
 
-   I(t) = \mu + N_j \sqrt{\sigma^2 + \sigma_{\text{mod}}^2 \sin(\omega t + \phi)}
-                              \quad \text{for} \quad t_0 + j \delta < t \leq t_0 + (j+1) \delta \;.
+Parameters:
+The following parameters can be set in the status dictionary:
 
-The effect of the noise current on a neuron depends on the switching interval :math:`\delta`.
-For a leaky integrate-and-fire neuron with time constant :math:`\tau_m` and capacitance
-:math:`C_m`, the variance of the membrane potential is given by
+mean      double - mean value of the noise current in pA
+std       double - standard deviation of noise current in pA
+dt        double - interval between changes in current in ms, default 1.0ms
+std_mod   double - modulated standard deviation of noise current in pA
+phase     double - Phase of sine modulation (0-360 deg)
+frequency double - Frequency of sine modulation in Hz
 
-.. math::
+Remarks:
+ - All targets receive different currents.
+ - The currents for all targets change at the same points in time.
+ - The interval between changes, dt, must be a multiple of the time step.
+ - The effect of this noise current on a neuron DEPENDS ON DT. Consider
+   the membrane potential fluctuations evoked when a noise current is
+   injected into a neuron. The standard deviation of these fluctuations
+   across an ensemble will increase with dt for a given value of std.
+   For the leaky integrate-and-fire neuron with time constant tau_m and
+   capacity C_m, membrane potential fluctuations Sigma at times t_j+delay are
+   given by
 
-        \Sigma^2 = \frac{\delta \tau_m \sigma^2}{2 C_m^2}
+     Sigma = std * tau_m / C_m * sqrt( (1-x) / (1+x) ) where x = exp(-dt/tau_m)
 
-for :math:`\delta \ll \tau_m`. For details, see the `noise generator notebook
-<../model_details/noise_generator.ipynb>`_.
+   for large t_j. In the white noise limit, dt -> 0, one has
 
-All targets of a noise generator receive different currents, but the currents for all
-targets change at the same points in time. The interval :math:`\delta` between
-changes must be a multiple of the time step.
+     Sigma -> std / C_m * sqrt(dt * tau / 2).
 
-.. admonition:: Recording the generated current
+   To obtain comparable results for different values of dt, you must
+   adapt std.
+ - As the noise generator provides a different current for each of its targets,
+   the current recorded represents the instantaneous average of all the
+   currents computed. When there exists only a single target, this would be
+   equivalent to the actual current provided to that target.
 
-   You can use a :doc:`multimeter <multimeter>` to record the average current sent to all targets for each time step
-   if simulating on a single thread; multiple MPI processes with one thread each also work. In this case,
-   the recording interval of the multimeter should be equal to the simulation resolution to avoid confusing effects
-   due to offset or drift between the recording times of the multimeter and the switching times of the
-   noise generator. In multi-threaded mode, recording of noise currents is prohibited for technical reasons.
+Sends: CurrentEvent
 
+SeeAlso: Device
 
-.. include:: ../models/stimulation_device.rst
+Author: Ported to NEST2 API 08/2007 by Jochen Eppler, updated 07/2008 by HEP
+*/
 
-mean
-    The mean value :math:`\mu` of the noise current (pA)
-
-std
-    The standard deviation :math:`\sigma` of the noise current (pA)
-
-dt
-    The interval :math:`\delta` between changes in current (ms; default: 10 * resolution)
-
-std_mod
-    The modulation :math:`\sigma_{\text{mod}}` of the standard deviation of the noise current (pA)
-
-frequency
-    The frequency of the sine modulation (Hz)
-
-phase
-    The phase of sine modulation (0–360 deg)
-
-
-Setting parameters from a stimulation backend
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The parameters in this stimulation device can be updated with input
-coming from a stimulation backend. The data structure used for the
-update holds one value for each of the parameters mentioned above.
-The indexing is as follows:
-
- 0. mean
- 1. std
- 2. std_mod
- 3. frequency
- 4. phase
-
-Sends
-+++++
-
-CurrentEvent
-
-See also
-++++++++
-
-step_current_generator
-
-Examples using this model
-+++++++++++++++++++++++++
-
-.. listexamples:: noise_generator
-
-EndUserDocs */
-
-void register_noise_generator( const std::string& name );
-
-class noise_generator : public StimulationDevice
+/**
+ * Gaussian white noise generator.
+ * Provide Gaussian "white" noise input current
+ */
+class noise_generator : public DeviceNode
 {
 
 public:
   noise_generator();
   noise_generator( const noise_generator& );
 
-
-  //! Allow multimeter to connect to local instances
-  bool local_receiver() const override;
+  bool
+  has_proxies() const
+  {
+    return false;
+  }
 
   /**
    * Import sets of overloaded virtual functions.
    * @see Technical Issues / Virtual Functions: Overriding, Overloading, and
    * Hiding
    */
-  using Node::event_hook;
   using Node::handle;
   using Node::handles_test_event;
+  using Node::event_hook;
   using Node::sends_signal;
 
-  size_t send_test_event( Node&, size_t, synindex, bool ) override;
+  port send_test_event( Node&, rport, synindex, bool );
 
-  SignalType sends_signal() const override;
+  SignalType sends_signal() const;
 
-  void handle( DataLoggingRequest& ) override;
+  void handle( DataLoggingRequest& );
 
-  size_t handles_test_event( DataLoggingRequest&, size_t ) override;
+  port handles_test_event( DataLoggingRequest&, rport );
 
-  void get_status( DictionaryDatum& ) const override;
-  void set_status( const DictionaryDatum& ) override;
+  void get_status( DictionaryDatum& ) const;
+  void set_status( const DictionaryDatum& );
 
-  void calibrate_time( const TimeConverter& tc ) override;
-
-  StimulationDevice::Type get_type() const override;
-  void set_data_from_stimulation_backend( std::vector< double >& input_param ) override;
+  //! Allow multimeter to connect to local instances
+  bool
+  local_receiver() const
+  {
+    return true;
+  }
 
 private:
-  void init_state_() override;
-  void init_buffers_() override;
+  void init_state_( const Node& );
+  void init_buffers_();
 
   /**
    * Recalculates parameters and forces reinitialization
    * of amplitudes if number of targets has changed.
    */
-  void pre_run_hook() override;
+  void calibrate();
 
-  void update( Time const&, const long, const long ) override;
-  void event_hook( DSCurrentEvent& ) override;
+  void update( Time const&, const long, const long );
+  void event_hook( DSCurrentEvent& );
 
   // ------------------------------------------------------------
 
@@ -228,9 +196,7 @@ private:
 
     void get( DictionaryDatum& ) const; //!< Store current values in dictionary
     //! Set values from dictionary
-    void set( const DictionaryDatum&, const noise_generator&, Node* node );
-
-    Time get_default_dt();
+    void set( const DictionaryDatum&, const noise_generator& );
   };
 
   // ------------------------------------------------------------
@@ -259,7 +225,7 @@ private:
   {
     long next_step_; //!< time step of next change in current
     AmpVec_ amps_;   //!< amplitudes, one per target
-    explicit Buffers_( noise_generator& );
+    Buffers_( noise_generator& );
     Buffers_( const Buffers_&, noise_generator& );
     UniversalDataLogger< noise_generator > logger_;
   };
@@ -268,11 +234,10 @@ private:
 
   struct Variables_
   {
-    normal_distribution normal_dist_; //!< normal distribution
-
-    long dt_steps_;  //!< update interval in steps
-    double omega_;   //!< frequency [radian/s]
-    double phi_rad_; //!< phase of sine current (0-2Pi rad)
+    long dt_steps_;                         //!< update interval in steps
+    librandom::NormalRandomDev normal_dev_; //!< random deviate generator
+    double omega_;                          //!< Angelfrequency i rad/s
+    double phi_rad_; //!< Phase of sine current (0-2Pi rad)
 
     // The exact integration matrix
     double A_00_;
@@ -291,20 +256,17 @@ private:
 
   static RecordablesMap< noise_generator > recordablesMap_;
 
+  StimulatingDevice< CurrentEvent > device_;
   Parameters_ P_;
   State_ S_;
-  Buffers_ B_;
   Variables_ V_;
+  Buffers_ B_;
 };
 
-inline size_t
-noise_generator::handles_test_event( DataLoggingRequest& dlr, size_t receptor_type )
+inline port
+noise_generator::handles_test_event( DataLoggingRequest& dlr,
+  rport receptor_type )
 {
-  if ( kernel().vp_manager.get_num_threads() > 1 )
-  {
-    throw KernelException( "Recording from a noise_generator is only possible in single-threaded mode." );
-  }
-
   if ( receptor_type != 0 )
   {
     throw UnknownReceptorType( receptor_type, get_name() );
@@ -317,7 +279,7 @@ noise_generator::get_status( DictionaryDatum& d ) const
 {
   P_.get( d );
   S_.get( d );
-  StimulationDevice::get_status( d );
+  device_.get_status( d );
 
   ( *d )[ names::recordables ] = recordablesMap_.get_list();
 }
@@ -327,12 +289,12 @@ noise_generator::set_status( const DictionaryDatum& d )
 {
   Parameters_ ptmp = P_;               // temporary copy in case of errors
   ptmp.num_targets_ = P_.num_targets_; // Copy Constr. does not copy connections
-  ptmp.set( d, *this, this );          // throws if BadProperty
+  ptmp.set( d, *this );                // throws if BadProperty
 
   // We now know that ptmp is consistent. We do not write it back
   // to P_ before we are also sure that the properties to be set
   // in the parent class are internally consistent.
-  StimulationDevice::set_status( d );
+  device_.set_status( d );
 
   // if we get here, temporaries contain consistent set of properties
   P_ = ptmp;
@@ -343,24 +305,6 @@ inline SignalType
 noise_generator::sends_signal() const
 {
   return ALL;
-}
-
-inline bool
-noise_generator::local_receiver() const
-{
-  return true;
-}
-
-inline StimulationDevice::Type
-noise_generator::get_type() const
-{
-  return StimulationDevice::Type::CURRENT_GENERATOR;
-}
-
-inline Time
-noise_generator::Parameters_::get_default_dt()
-{
-  return 10 * Time::get_resolution();
 }
 
 } // namespace

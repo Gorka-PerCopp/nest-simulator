@@ -32,7 +32,8 @@
 #include "node.h"
 
 template < typename HostNode >
-nest::DynamicUniversalDataLogger< HostNode >::DynamicUniversalDataLogger( HostNode& host )
+nest::DynamicUniversalDataLogger< HostNode >::DynamicUniversalDataLogger(
+  HostNode& host )
   : host_( host )
   , data_loggers_()
 {
@@ -70,9 +71,10 @@ nest::DynamicUniversalDataLogger< HostNode >::record_data( long step )
 
 template < typename HostNode >
 void
-nest::DynamicUniversalDataLogger< HostNode >::handle( const DataLoggingRequest& dlr )
+nest::DynamicUniversalDataLogger< HostNode >::handle(
+  const DataLoggingRequest& dlr )
 {
-  const size_t rport = dlr.get_rport();
+  const rport rport = dlr.get_rport();
   assert( rport >= 1 );
   assert( static_cast< size_t >( rport ) <= data_loggers_.size() );
   data_loggers_[ rport - 1 ].handle( host_, dlr );
@@ -97,13 +99,15 @@ nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::init()
 
   // Next recording step is in current slice or beyond, indicates that
   // buffer is properly initialized.
-  if ( next_rec_step_ >= kernel().simulation_manager.get_slice_origin().get_steps() )
+  if ( next_rec_step_
+    >= kernel().simulation_manager.get_slice_origin().get_steps() )
   {
     return;
   }
 
-  // If we get here, the buffer has either never been initialized or has been dormant
-  // during a period when the host node was frozen. We then (re-)initialize.
+  // If we get here, the buffer has either never been initialized or has
+  // been dormant during a period when the host node was frozen. We then
+  // (re-)initialize.
   data_.clear();
 
   // store recording time in steps
@@ -114,24 +118,27 @@ nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::init()
   // left of update intervals, and we want time stamps at right end of
   // update interval to be multiples of recording interval. Need to add
   // +1 because the division result is rounded down.
-  next_rec_step_ = ( kernel().simulation_manager.get_time().get_steps() / rec_int_steps_ + 1 ) * rec_int_steps_ - 1;
+  next_rec_step_ =
+    ( kernel().simulation_manager.get_time().get_steps() / rec_int_steps_ + 1 )
+      * rec_int_steps_
+    - 1;
 
-  // If offset is not 0, adjust next recording step to account for it by first setting next recording
-  // step to be offset and then iterating until the variable is greater than current simulation time.
+  // if offset is not 0, adjust next recording step to account for it by
+  // going one interval step back and adding the offset
   if ( recording_offset_.get_steps() != 0 )
   {
-    next_rec_step_ = recording_offset_.get_steps() - 1; // shifted one to left
-    while ( next_rec_step_ <= kernel().simulation_manager.get_time().get_steps() )
-    {
-      next_rec_step_ += rec_int_steps_;
-    }
+    next_rec_step_ =
+      next_rec_step_ - rec_int_steps_ + recording_offset_.get_steps();
   }
 
   // number of data points per slice
-  const long recs_per_slice = static_cast< long >(
-    std::ceil( kernel().connection_manager.get_min_delay() / static_cast< double >( rec_int_steps_ ) ) );
+  const long recs_per_slice =
+    static_cast< long >( std::ceil( kernel().connection_manager.get_min_delay()
+      / static_cast< double >( rec_int_steps_ ) ) );
 
-  data_.resize( 2, DataLoggingReply::Container( recs_per_slice, DataLoggingReply::Item( num_vars_ ) ) );
+  data_.resize( 2,
+    DataLoggingReply::Container(
+                  recs_per_slice, DataLoggingReply::Item( num_vars_ ) ) );
 
   next_rec_.resize( 2 );               // just for safety's sake
   next_rec_[ 0 ] = next_rec_[ 1 ] = 0; // start at beginning of buffer
@@ -139,9 +146,11 @@ nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::init()
 
 template < typename HostNode >
 void
-nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::record_data( const HostNode&, long step )
+nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::record_data(
+  const HostNode& host,
+  long step )
 {
-  if ( num_vars_ < 1 or step < next_rec_step_ )
+  if ( num_vars_ < 1 || step < next_rec_step_ )
   {
     return;
   }
@@ -151,12 +160,13 @@ nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::record_data( const Ho
   assert( wt < next_rec_.size() );
   assert( wt < data_.size() );
 
-  // The following assertion may fire if the multimeter connected to
-  // this logger is frozen. In that case, handle() is not called and
-  // next_rec_[wt] never reset. The assert() prevents error propagation.
-  // This is not an exception, since I consider the chance of users
-  // freezing multimeters very slim.
-  // See #464 for details.
+  /* The following assertion may fire if the multimeter connected to
+     this logger is frozen. In that case, handle() is not called and
+     next_rec_[wt] never reset. The assert() prevents error propagation.
+     This is not an exception, since I consider the chance of users
+     freezing multimeters very slim.
+     See #464 for details.
+   */
   assert( next_rec_[ wt ] < data_[ wt ].size() );
 
   DataLoggingReply::Item& dest = data_[ wt ][ next_rec_[ wt ] ];
@@ -172,16 +182,19 @@ nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::record_data( const Ho
 
   next_rec_step_ += rec_int_steps_;
 
-  // We just increment. Construction ensures that we cannot overflow,
-  // and read-out resets.
-  // Overflow is possible if the multimeter is frozen, see #464.
-  // In that case, the assertion above will trigger.
+  /* We just increment. Construction ensures that we cannot overflow,
+     and read-out resets.
+     Overflow is possible if the multimeter is frozen, see #464.
+     In that case, the assertion above will trigger.
+  */
   ++next_rec_[ wt ];
 }
 
 template < typename HostNode >
 void
-nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::handle( HostNode& host, const DataLoggingRequest& request )
+nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::handle(
+  HostNode& host,
+  const DataLoggingRequest& request )
 {
   if ( num_vars_ < 1 )
   {
@@ -199,8 +212,10 @@ nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::handle( HostNode& hos
 
   // Check if we have valid data, i.e., data with time stamps within the
   // past time slice. This may not be the case if the node has been frozen.
-  // In that case, we still reset the recording marker, to prepare for the next round.
-  if ( data_[ rt ][ 0 ].timestamp <= kernel().simulation_manager.get_previous_slice_origin() )
+  // In that case, we still reset the recording marker, to prepare for the next
+  // round.
+  if ( data_[ rt ][ 0 ].timestamp
+    <= kernel().simulation_manager.get_previous_slice_origin() )
   {
     next_rec_[ rt ] = 0;
     return;
@@ -223,7 +238,7 @@ nest::DynamicUniversalDataLogger< HostNode >::DataLogger_::handle( HostNode& hos
   next_rec_[ rt ] = 0;
 
   reply.set_sender( host );
-  reply.set_sender_node_id( host.get_node_id() );
+  reply.set_sender_gid( host.get_gid() );
   reply.set_receiver( request.get_sender() );
   reply.set_port( request.get_port() );
 
@@ -272,7 +287,7 @@ template < typename HostNode >
 void
 nest::UniversalDataLogger< HostNode >::handle( const DataLoggingRequest& dlr )
 {
-  const size_t rport = dlr.get_rport();
+  const rport rport = dlr.get_rport();
   assert( rport >= 1 );
   assert( static_cast< size_t >( rport ) <= data_loggers_.size() );
   data_loggers_[ rport - 1 ].handle( host_, dlr );
@@ -292,19 +307,20 @@ nest::UniversalDataLogger< HostNode >::DataLogger_::init()
 {
   if ( num_vars_ < 1 )
   {
-    // not recording anything
     return;
-  }
+  } // not recording anything
 
   // Next recording step is in current slice or beyond, indicates that
   // buffer is properly initialized.
-  if ( next_rec_step_ >= kernel().simulation_manager.get_slice_origin().get_steps() )
+  if ( next_rec_step_
+    >= kernel().simulation_manager.get_slice_origin().get_steps() )
   {
     return;
   }
 
   // If we get here, the buffer has either never been initialized or has
-  // been dormant during a period when the host node was frozen. We then (re-)initialize.
+  // been dormant during a period when the host node was frozen. We then
+  // (re-)initialize.
   data_.clear();
 
   // store recording time in steps
@@ -315,24 +331,27 @@ nest::UniversalDataLogger< HostNode >::DataLogger_::init()
   // left of update intervals, and we want time stamps at right end of
   // update interval to be multiples of recording interval. Need to add
   // +1 because the division result is rounded down.
-  next_rec_step_ = ( kernel().simulation_manager.get_time().get_steps() / rec_int_steps_ + 1 ) * rec_int_steps_ - 1;
+  next_rec_step_ =
+    ( kernel().simulation_manager.get_time().get_steps() / rec_int_steps_ + 1 )
+      * rec_int_steps_
+    - 1;
 
-  // If offset is not 0, adjust next recording step to account for it by first setting next recording
-  // step to be offset and then iterating until the variable is greater than current simulation time.
+  // if offset is not 0, adjust next recording step to account for it by
+  // going one interval step back and adding the offset
   if ( recording_offset_.get_steps() != 0 )
   {
-    next_rec_step_ = recording_offset_.get_steps() - 1; // shifted one to left
-    while ( next_rec_step_ <= kernel().simulation_manager.get_time().get_steps() )
-    {
-      next_rec_step_ += rec_int_steps_;
-    }
+    next_rec_step_ =
+      next_rec_step_ - rec_int_steps_ + recording_offset_.get_steps();
   }
 
   // number of data points per slice
-  const long recs_per_slice = static_cast< long >(
-    std::ceil( kernel().connection_manager.get_min_delay() / static_cast< double >( rec_int_steps_ ) ) );
+  const long recs_per_slice =
+    static_cast< long >( std::ceil( kernel().connection_manager.get_min_delay()
+      / static_cast< double >( rec_int_steps_ ) ) );
 
-  data_.resize( 2, DataLoggingReply::Container( recs_per_slice, DataLoggingReply::Item( num_vars_ ) ) );
+  data_.resize( 2,
+    DataLoggingReply::Container(
+                  recs_per_slice, DataLoggingReply::Item( num_vars_ ) ) );
 
   next_rec_.resize( 2 );               // just for safety's sake
   next_rec_[ 0 ] = next_rec_[ 1 ] = 0; // start at beginning of buffer
@@ -340,7 +359,9 @@ nest::UniversalDataLogger< HostNode >::DataLogger_::init()
 
 template < typename HostNode >
 void
-nest::UniversalDataLogger< HostNode >::DataLogger_::record_data( const HostNode& host, long step )
+nest::UniversalDataLogger< HostNode >::DataLogger_::record_data(
+  const HostNode& host,
+  long step )
 {
   if ( num_vars_ < 1 or step < next_rec_step_ )
   {
@@ -352,12 +373,13 @@ nest::UniversalDataLogger< HostNode >::DataLogger_::record_data( const HostNode&
   assert( wt < next_rec_.size() );
   assert( wt < data_.size() );
 
-  // The following assertion may fire if the multimeter connected to
-  // this logger is frozen. In that case, handle() is not called and
-  // next_rec_[wt] never reset. The assert() prevents error propagation.
-  // This is not an exception, since I consider the chance of users
-  // freezing multimeters very slim.
-  // See #464 for details.
+  /* The following assertion may fire if the multimeter connected to
+     this logger is frozen. In that case, handle() is not called and
+     next_rec_[wt] never reset. The assert() prevents error propagation.
+     This is not an exception, since I consider the chance of users
+     freezing multimeters very slim.
+     See #464 for details.
+   */
   assert( next_rec_[ wt ] < data_[ wt ].size() );
 
   DataLoggingReply::Item& dest = data_[ wt ][ next_rec_[ wt ] ];
@@ -373,22 +395,23 @@ nest::UniversalDataLogger< HostNode >::DataLogger_::record_data( const HostNode&
 
   next_rec_step_ += rec_int_steps_;
 
-  // We just increment. Construction ensures that we cannot overflow,
-  // and read-out resets.
-  // Overflow is possible if the multimeter is frozen, see #464.
-  //  In that case, the assertion above will trigger.
+  /* We just increment. Construction ensures that we cannot overflow,
+     and read-out resets.
+     Overflow is possible if the multimeter is frozen, see #464.
+     In that case, the assertion above will trigger.
+  */
   ++next_rec_[ wt ];
 }
 
 template < typename HostNode >
 void
-nest::UniversalDataLogger< HostNode >::DataLogger_::handle( HostNode& host, const DataLoggingRequest& request )
+nest::UniversalDataLogger< HostNode >::DataLogger_::handle( HostNode& host,
+  const DataLoggingRequest& request )
 {
   if ( num_vars_ < 1 )
   {
-    // nothing to do
     return;
-  }
+  } // nothing to do
 
   // The following assertions will fire if the user forgot to call init()
   // on the data logger.
@@ -401,8 +424,10 @@ nest::UniversalDataLogger< HostNode >::DataLogger_::handle( HostNode& host, cons
 
   // Check if we have valid data, i.e., data with time stamps within the
   // past time slice. This may not be the case if the node has been frozen.
-  // In that case, we still reset the recording marker, to prepare for the next round.
-  if ( data_[ rt ][ 0 ].timestamp <= kernel().simulation_manager.get_previous_slice_origin() )
+  // In that case, we still reset the recording marker, to prepare for the next
+  // round.
+  if ( data_[ rt ][ 0 ].timestamp
+    <= kernel().simulation_manager.get_previous_slice_origin() )
   {
     next_rec_[ rt ] = 0;
     return;
@@ -425,7 +450,7 @@ nest::UniversalDataLogger< HostNode >::DataLogger_::handle( HostNode& host, cons
   next_rec_[ rt ] = 0;
 
   reply.set_sender( host );
-  reply.set_sender_node_id( host.get_node_id() );
+  reply.set_sender_gid( host.get_gid() );
   reply.set_receiver( request.get_sender() );
   reply.set_port( request.get_port() );
 
@@ -433,4 +458,4 @@ nest::UniversalDataLogger< HostNode >::DataLogger_::handle( HostNode& host, cons
   kernel().event_delivery_manager.send_to_node( reply );
 }
 
-#endif /* #ifndef UNIVERSAL_DATA_LOGGER_IMPL_H */
+#endif // #ifndef UNIVERSAL_DATA_LOGGER_IMPL_H

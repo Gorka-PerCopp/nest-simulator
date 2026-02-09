@@ -25,25 +25,16 @@
 // Includes from nestkernel:
 #include "event_delivery_manager_impl.h"
 #include "kernel_manager.h"
-#include "nest_impl.h"
 #include "universal_data_logger_impl.h"
-
-// Includes from libnestutil:
-#include "dict_util.h"
 
 // Includes from sli:
 #include "dict.h"
 #include "dictutils.h"
 #include "doubledatum.h"
+#include "integerdatum.h"
 
 namespace nest
 {
-void
-register_dc_generator( const std::string& name )
-{
-  register_node_model< dc_generator >( name );
-}
-
 RecordablesMap< dc_generator > dc_generator::recordablesMap_;
 
 template <>
@@ -68,8 +59,8 @@ nest::dc_generator::Parameters_::Parameters_( const Parameters_& p )
 {
 }
 
-nest::dc_generator::Parameters_&
-nest::dc_generator::Parameters_::operator=( const Parameters_& p )
+nest::dc_generator::Parameters_& nest::dc_generator::Parameters_::operator=(
+  const Parameters_& p )
 {
   if ( this == &p )
   {
@@ -108,9 +99,9 @@ nest::dc_generator::Parameters_::get( DictionaryDatum& d ) const
 }
 
 void
-nest::dc_generator::Parameters_::set( const DictionaryDatum& d, Node* node )
+nest::dc_generator::Parameters_::set( const DictionaryDatum& d )
 {
-  updateValueParam< double >( d, names::amplitude, amp_, node );
+  updateValue< double >( d, names::amplitude, amp_ );
 }
 
 
@@ -119,7 +110,8 @@ nest::dc_generator::Parameters_::set( const DictionaryDatum& d, Node* node )
  * ---------------------------------------------------------------- */
 
 nest::dc_generator::dc_generator()
-  : StimulationDevice()
+  : DeviceNode()
+  , device_()
   , P_()
   , S_()
   , B_( *this )
@@ -128,7 +120,8 @@ nest::dc_generator::dc_generator()
 }
 
 nest::dc_generator::dc_generator( const dc_generator& n )
-  : StimulationDevice( n )
+  : DeviceNode( n )
+  , device_( n.device_ )
   , P_( n.P_ )
   , S_( n.S_ )
   , B_( n.B_, *this )
@@ -139,25 +132,29 @@ nest::dc_generator::dc_generator( const dc_generator& n )
 /* ----------------------------------------------------------------
  * Node initialization functions
  * ---------------------------------------------------------------- */
+
 void
-nest::dc_generator::init_state_()
+nest::dc_generator::init_state_( const Node& proto )
 {
-  StimulationDevice::init_state();
+  const dc_generator& pr = downcast< dc_generator >( proto );
+
+  device_.init_state( pr.device_ );
+  S_ = pr.S_;
 }
 
 void
 nest::dc_generator::init_buffers_()
 {
-  StimulationDevice::init_buffers();
+  device_.init_buffers();
   B_.logger_.reset();
 }
 
 void
-nest::dc_generator::pre_run_hook()
+nest::dc_generator::calibrate()
 {
   B_.logger_.init();
 
-  StimulationDevice::pre_run_hook();
+  device_.calibrate();
 }
 
 
@@ -168,6 +165,10 @@ nest::dc_generator::pre_run_hook()
 void
 nest::dc_generator::update( Time const& origin, const long from, const long to )
 {
+  assert(
+    to >= 0 && ( delay ) from < kernel().connection_manager.get_min_delay() );
+  assert( from < to );
+
   long start = origin.get_steps();
 
   CurrentEvent ce;
@@ -175,7 +176,8 @@ nest::dc_generator::update( Time const& origin, const long from, const long to )
   for ( long offs = from; offs < to; ++offs )
   {
     S_.I_ = 0.0;
-    if ( StimulationDevice::is_active( Time::step( start + offs ) ) )
+
+    if ( device_.is_active( Time::step( start + offs ) ) )
     {
       S_.I_ = P_.amp_;
       kernel().event_delivery_manager.send( *this, ce, offs );
@@ -188,25 +190,4 @@ void
 nest::dc_generator::handle( DataLoggingRequest& e )
 {
   B_.logger_.handle( e );
-}
-
-void
-nest::dc_generator::set_data_from_stimulation_backend( std::vector< double >& input_param )
-{
-  Parameters_ ptmp = P_; // temporary copy in case of errors
-
-  // For the input backend
-  if ( not input_param.empty() )
-  {
-    if ( input_param.size() != 1 )
-    {
-      throw BadParameterValue( "The size of the data for the dc_generator needs to be 1 [amplitude]." );
-    }
-    DictionaryDatum d = DictionaryDatum( new Dictionary );
-    ( *d )[ names::amplitude ] = DoubleDatum( input_param[ 0 ] );
-    ptmp.set( d, this );
-  }
-
-  // if we get here, temporary contains consistent set of properties
-  P_ = ptmp;
 }

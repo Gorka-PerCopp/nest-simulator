@@ -21,6 +21,33 @@
  */
 
 
+/* BeginDocumentation
+Name: rate_connection_instantaneous - Synapse type for instantaneous rate
+connections.
+
+Description:
+ rate_connection_instantaneous is a connector to create
+ instantaneous connections between rate model neurons.
+
+ The value of the parameter delay is ignored for connections of
+ this type. To create rate connections with delay please use
+ the synapse type rate_connection_delayed.
+
+Transmits: InstantaneousRateConnectionEvent
+
+References:
+
+ Hahne, J., Dahmen, D., Schuecker, J., Frommer, A.,
+ Bolten, M., Helias, M. and Diesmann, M. (2017).
+ Integration of Continuous-Time Dynamics in a
+ Spiking Neural Network Simulator.
+ Front. Neuroinform. 11:34. doi: 10.3389/fninf.2017.00034
+
+Author: David Dahmen, Jan Hahne, Jannis Schuecker
+SeeAlso: rate_connection_delayed, rate_neuron_ipn, rate_neuron_opn
+*/
+
+
 #ifndef RATE_CONNECTION_INSTANTANEOUS_H
 #define RATE_CONNECTION_INSTANTANEOUS_H
 
@@ -28,79 +55,29 @@
 
 namespace nest
 {
-
-/* BeginUserDocs: synapse, rate, instantaneous
-
-Short description
-+++++++++++++++++
-
-Synapse type for instantaneous rate connections
-
-Description
-+++++++++++
-
-``rate_connection_instantaneous`` is a connector to create
-instantaneous connections between rate model neurons.
-
-The value of the parameter delay is ignored for connections of
-this type. To create rate connections with delay please use
-the synapse type ``rate_connection_delayed``.
-
-See also [1]_.
-
-Transmits
-+++++++++
-
-InstantaneousRateConnectionEvent
-
-References
-++++++++++
-
-.. [1] Hahne J, Dahmen D, Schuecker J, Frommer A, Bolten M, Helias M,
-       Diesmann M (2017). Integration of continuous-time dynamics in a
-       spiking neural network simulator. Frontiers in Neuroinformatics, 11:34.
-       DOI: https://doi.org/10.3389/fninf.2017.00034
-
-See also
-++++++++
-
-rate_connection_delayed, rate_neuron_ipn, rate_neuron_opn
-
-Examples using this model
-+++++++++++++++++++++++++
-
-.. listexamples:: rate_connection_instantaneous
-
-EndUserDocs */
-
 /**
  * Class representing a rate connection. A rate connection
  * has the properties weight and receiver port.
  */
-void register_rate_connection_instantaneous( const std::string& name );
-
 template < typename targetidentifierT >
-class rate_connection_instantaneous : public Connection< targetidentifierT >
+class RateConnectionInstantaneous : public Connection< targetidentifierT >
 {
 
 public:
   // this line determines which common properties to use
   typedef CommonSynapseProperties CommonPropertiesType;
   typedef Connection< targetidentifierT > ConnectionBase;
-
-  static constexpr ConnectionModelProperties properties = ConnectionModelProperties::SUPPORTS_WFR;
+  typedef InstantaneousRateConnectionEvent EventType;
 
   /**
    * Default Constructor.
    * Sets default values for all parameters. Needed by GenericConnectorModel.
    */
-  rate_connection_instantaneous()
+  RateConnectionInstantaneous()
     : ConnectionBase()
     , weight_( 1.0 )
   {
   }
-
-  std::unique_ptr< SecondaryEvent > get_secondary_event();
 
   // Explicitly declare all methods inherited from the dependent base
   // ConnectionBase.
@@ -113,13 +90,17 @@ public:
   using ConnectionBase::get_target;
 
   void
-  check_connection( Node& s, Node& t, size_t receptor_type, const CommonPropertiesType& )
+  check_connection( Node& s,
+    Node& t,
+    rport receptor_type,
+    const CommonPropertiesType& )
   {
-    InstantaneousRateConnectionEvent ge;
+    EventType ge;
 
     s.sends_secondary_event( ge );
     ge.set_sender( s );
-    Connection< targetidentifierT >::target_.set_rport( t.handles_test_event( ge, receptor_type ) );
+    Connection< targetidentifierT >::target_.set_rport(
+      t.handles_test_event( ge, receptor_type ) );
     Connection< targetidentifierT >::target_.set_target( &t );
   }
 
@@ -128,14 +109,13 @@ public:
    * \param e The event to send
    * \param p The port under which this connection is stored in the Connector.
    */
-  bool
-  send( Event& e, size_t t, const CommonSynapseProperties& )
+  void
+  send( Event& e, thread t, const CommonSynapseProperties& )
   {
     e.set_weight( weight_ );
     e.set_receiver( *get_target( t ) );
     e.set_rport( get_rport() );
     e();
-    return true;
   }
 
   void get_status( DictionaryDatum& d ) const;
@@ -161,11 +141,9 @@ private:
 };
 
 template < typename targetidentifierT >
-constexpr ConnectionModelProperties rate_connection_instantaneous< targetidentifierT >::properties;
-
-template < typename targetidentifierT >
 void
-rate_connection_instantaneous< targetidentifierT >::get_status( DictionaryDatum& d ) const
+RateConnectionInstantaneous< targetidentifierT >::get_status(
+  DictionaryDatum& d ) const
 {
   ConnectionBase::get_status( d );
   def< double >( d, names::weight, weight_ );
@@ -174,7 +152,9 @@ rate_connection_instantaneous< targetidentifierT >::get_status( DictionaryDatum&
 
 template < typename targetidentifierT >
 void
-rate_connection_instantaneous< targetidentifierT >::set_status( const DictionaryDatum& d, ConnectorModel& cm )
+RateConnectionInstantaneous< targetidentifierT >::set_status(
+  const DictionaryDatum& d,
+  ConnectorModel& cm )
 {
   // If the delay is set, we throw a BadProperty
   if ( d->known( names::delay ) )
@@ -186,13 +166,6 @@ rate_connection_instantaneous< targetidentifierT >::set_status( const Dictionary
 
   ConnectionBase::set_status( d, cm );
   updateValue< double >( d, names::weight, weight_ );
-}
-
-template < typename targetidentifierT >
-std::unique_ptr< SecondaryEvent >
-rate_connection_instantaneous< targetidentifierT >::get_secondary_event()
-{
-  return std::make_unique< InstantaneousRateConnectionEvent >();
 }
 
 } // namespace
